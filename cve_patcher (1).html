@@ -1,0 +1,1997 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CVE Patch Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root {
+  --bg:#080b16;--bg2:#0d1222;--panel:#111828;--panel2:#131c30;
+  --border:rgba(32,160,255,.10);--border2:rgba(32,160,255,.22);
+  --accent:#20a0ff;--accent2:#00d4ff;--adim:rgba(32,160,255,.12);
+  --green:#00e5a0;--gdim:rgba(0,229,160,.10);
+  --red:#ff4560;--rdim:rgba(255,69,96,.10);
+  --orange:#ff8c00;--odim:rgba(255,140,0,.10);
+  --yellow:#ffd600;--ydim:rgba(255,214,0,.10);
+  --text:#e8eef8;--text2:#8a9bb8;--text3:#4a5a78;
+  --mono:'IBM Plex Mono',monospace;
+  --head:'Rajdhani',sans-serif;
+  --body:'Inter',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--body);min-height:100vh;overflow-x:hidden}
+
+.bg-canvas{position:fixed;inset:0;z-index:0;
+  background:radial-gradient(ellipse 80% 50% at 20% 10%,rgba(32,160,255,.10) 0%,transparent 60%),
+             radial-gradient(ellipse 60% 40% at 80% 80%,rgba(0,212,255,.07) 0%,transparent 50%),
+             radial-gradient(ellipse 50% 40% at 50% 50%,rgba(32,80,180,.06) 0%,transparent 70%)}
+.grid{position:fixed;inset:0;z-index:0;
+  background-image:linear-gradient(rgba(32,160,255,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(32,160,255,.055) 1px,transparent 1px);
+  background-size:60px 60px;
+  mask-image:radial-gradient(ellipse 100% 100% at 50% 0%,black 30%,transparent 80%);
+  animation:grid-drift 50s linear infinite}
+@keyframes grid-drift{to{background-position:60px 60px}}
+.scan{position:fixed;left:0;right:0;height:2px;z-index:0;
+  background:linear-gradient(90deg,transparent,rgba(32,160,255,.45),transparent);
+  animation:scan 9s linear infinite;top:0;pointer-events:none}
+@keyframes scan{0%{top:0;opacity:0}5%{opacity:1}95%{opacity:1}100%{top:100%;opacity:0}}
+
+.app{position:relative;z-index:1;max-width:1000px;margin:0 auto;padding:0 24px 80px}
+
+/* NAV */
+.nav{display:flex;align-items:center;justify-content:space-between;padding:20px 0 28px;border-bottom:1px solid var(--border);margin-bottom:40px}
+.nav-brand{display:flex;align-items:center;gap:14px}
+.nav-hex{width:40px;height:40px;position:relative}
+.nav-hex svg{width:40px;height:40px}
+.nav-title{font-family:var(--head);font-size:22px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+  background:linear-gradient(90deg,#60bfff 0%,#00e0ff 35%,#c8f0ff 50%,#00e0ff 65%,#60bfff 100%);
+  background-size:200% 100%;
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  filter:drop-shadow(0 0 8px rgba(32,160,255,.45));
+  animation:title-shimmer 6s ease-in-out infinite}
+.nav-sub{font-family:var(--mono);font-size:10px;color:var(--text2);letter-spacing:.15em;text-transform:uppercase;margin-top:2px}
+.nav-right{display:flex;align-items:center;gap:20px}
+.live-wrap{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11px;color:var(--text2);letter-spacing:.08em}
+.live-dot{width:7px;height:7px;background:var(--green);border-radius:50%;box-shadow:0 0 6px var(--green);animation:lp 2s ease-in-out infinite}
+@keyframes lp{0%,100%{opacity:1;box-shadow:0 0 6px var(--green)}50%{opacity:.4;box-shadow:0 0 14px var(--green)}}
+.lang-sw{display:flex;gap:2px;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:2px}
+.lang-btn{padding:4px 12px;border-radius:4px;border:none;font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.1em;cursor:pointer;background:transparent;color:var(--text3);transition:all .15s}
+.lang-btn.on{background:var(--accent);color:#fff}
+
+/* INPUT ZONE */
+.input-zone{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:28px;margin-bottom:28px;position:relative;overflow:hidden;transition:border-color .3s}
+.input-zone::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:.5}
+.input-zone:focus-within{border-color:var(--border2)}
+.zone-hdr{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.zone-label{font-family:var(--head);font-size:13px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--text2)}
+.zone-tag{font-family:var(--mono);font-size:10px;padding:2px 8px;background:var(--adim);color:var(--accent);border:1px solid rgba(32,160,255,.2);border-radius:4px;letter-spacing:.08em}
+textarea{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--mono);font-size:13px;line-height:1.8;padding:14px 16px;resize:vertical;min-height:90px;outline:none;transition:border-color .2s;letter-spacing:.04em}
+textarea::placeholder{color:var(--text3)}
+textarea:focus{border-color:rgba(32,160,255,.35)}
+.run-row{display:flex;align-items:center;justify-content:space-between;margin-top:16px;gap:12px}
+.cve-counter{font-family:var(--mono);font-size:12px;color:var(--text3)}
+.cve-counter span{color:var(--accent);font-weight:600}
+.btn-analyze{display:flex;align-items:center;gap:9px;background:linear-gradient(135deg,#1060c0,#20a0ff);color:#fff;border:none;border-radius:8px;padding:11px 28px;font-family:var(--head);font-size:15px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;position:relative;overflow:hidden;transition:all .2s;box-shadow:0 4px 20px rgba(32,160,255,.2)}
+.btn-analyze::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.1),transparent);transform:translateX(-100%);transition:transform .5s}
+.btn-analyze:hover:not(:disabled)::after{transform:translateX(100%)}
+.btn-analyze:hover:not(:disabled){box-shadow:0 4px 28px rgba(32,160,255,.4);transform:translateY(-1px)}
+.btn-analyze:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.spin-ring{width:15px;height:15px;border:2px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:spin .55s linear infinite;display:none}
+.btn-analyze.loading .spin-ring{display:block}
+.btn-analyze.loading .btn-lbl{display:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* PROGRESS */
+.prog-wrap{display:none;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin-bottom:20px}
+.prog-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.prog-lbl{font-family:var(--mono);font-size:12px;color:var(--text2)}
+.prog-pct{font-family:var(--mono);font-size:12px;color:var(--accent)}
+.prog-track{height:3px;background:var(--border);border-radius:2px;overflow:hidden}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:2px;width:0%;transition:width .4s ease;box-shadow:0 0 8px var(--accent)}
+
+/* VERSION DIALOG */
+.v-dialog{display:none;background:var(--panel);border:1px solid var(--border2);border-radius:14px;padding:24px 28px;margin-bottom:20px;position:relative;animation:fin .25s ease}
+.v-dialog::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent2),transparent)}
+@keyframes fin{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+.v-title{font-family:var(--head);font-size:16px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent2);margin-bottom:6px;display:flex;align-items:center;gap:10px}
+.v-body{font-size:13px;color:var(--text2);margin-bottom:18px;line-height:1.6}
+.v-questions{display:flex;flex-direction:column;gap:16px}
+.v-q{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px}
+.v-q-text{font-size:13px;font-weight:500;color:var(--text);margin-bottom:10px}
+.v-vendor-tag{font-family:var(--mono);font-size:10px;color:var(--accent);padding:2px 7px;background:var(--adim);border:1px solid rgba(32,160,255,.2);border-radius:4px;margin-bottom:8px;display:inline-block}
+.v-opts{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}
+.v-opt{padding:6px 14px;background:var(--panel2);border:1px solid var(--border);border-radius:6px;font-family:var(--mono);font-size:12px;color:var(--text2);cursor:pointer;transition:all .15s}
+.v-opt:hover{border-color:var(--accent);color:var(--accent)}
+.v-opt.sel{background:var(--adim);border-color:var(--accent);color:var(--accent)}
+.v-txt{width:100%;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;padding:8px 12px;outline:none;transition:border-color .2s;margin-top:8px}
+.v-txt:focus{border-color:rgba(32,160,255,.35)}
+.v-txt::placeholder{color:var(--text3)}
+.v-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
+.btn-cont{background:linear-gradient(135deg,#1060c0,#20a0ff);color:#fff;border:none;border-radius:7px;padding:9px 24px;font-family:var(--head);font-size:14px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:all .15s}
+.btn-cont:hover{box-shadow:0 0 16px rgba(32,160,255,.3)}
+.btn-skip{background:transparent;color:var(--text3);border:1px solid var(--border);border-radius:7px;padding:9px 18px;font-family:var(--mono);font-size:12px;cursor:pointer;transition:all .15s}
+.btn-skip:hover{color:var(--text2);border-color:var(--border2)}
+
+/* RESULTS HEADER */
+.res-hdr{display:none;align-items:center;justify-content:space-between;margin-bottom:20px;gap:12px}
+.res-title{font-family:var(--head);font-size:18px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text2)}
+.sev-counts{display:flex;gap:8px;flex-wrap:wrap}
+.sev-chip{display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:11px;font-weight:600;padding:4px 10px;border-radius:5px;letter-spacing:.06em}
+.btn-pdf{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--border2);color:var(--accent);border-radius:8px;padding:9px 18px;font-family:var(--head);font-size:13px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:all .2s;white-space:nowrap}
+.btn-pdf:hover{background:var(--adim);box-shadow:0 0 16px rgba(32,160,255,.15)}
+
+/* VENDOR GROUP */
+.v-group{margin-bottom:28px;animation:su .35s ease forwards;opacity:0;transform:translateY(14px)}
+@keyframes su{to{opacity:1;transform:translateY(0)}}
+.v-group-hdr{display:flex;align-items:center;gap:12px;padding:12px 18px;background:var(--panel2);border:1px solid var(--border);border-radius:10px 10px 0 0;border-bottom:none}
+.v-icon{width:32px;height:32px;background:var(--adim);border:1px solid rgba(32,160,255,.2);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:15px}
+.v-name{font-family:var(--head);font-size:16px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.v-cnt{font-family:var(--mono);font-size:11px;color:var(--text3);margin-left:auto}
+
+/* CVE CARD */
+.cve-card{background:var(--panel);border:1px solid var(--border);overflow:hidden;transition:border-color .2s}
+.cve-card:last-child{border-radius:0 0 10px 10px}
+.cve-card+.cve-card{border-top:none}
+.cve-card:hover{border-color:var(--border2)}
+.cve-row{display:flex;align-items:center;padding:14px 18px;gap:14px;cursor:pointer;transition:background .15s}
+.cve-row:hover{background:rgba(32,160,255,.03)}
+.sev-bar{width:3px;height:36px;border-radius:2px;flex-shrink:0}
+.cve-main{flex:1;min-width:0}
+.cve-id-row{display:flex;align-items:center;gap:10px;margin-bottom:3px}
+.cve-id{font-family:var(--mono);font-size:14px;font-weight:600;letter-spacing:.04em}
+.sev-badge{font-family:var(--mono);font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;letter-spacing:.08em}
+.cve-short{font-size:12px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:500px}
+.cve-meta{display:flex;align-items:center;gap:14px;flex-shrink:0}
+.score-ring{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;font-weight:700;border:2px solid;flex-shrink:0}
+.chev{color:var(--text3);font-size:11px;transition:transform .2s;flex-shrink:0}
+.cve-card.open .chev{transform:rotate(180deg)}
+
+/* severity token theming */
+.s-CRITICAL{--sc:var(--red);--scb:var(--rdim)}
+.s-HIGH{--sc:var(--orange);--scb:var(--odim)}
+.s-MEDIUM{--sc:var(--yellow);--scb:var(--ydim)}
+.s-LOW{--sc:var(--green);--scb:var(--gdim)}
+.s-NONE,.s-UNKNOWN{--sc:var(--text3);--scb:rgba(100,100,100,.08)}
+.sev-bar{background:var(--sc)}
+.score-ring{color:var(--sc);border-color:color-mix(in srgb,var(--sc) 35%,transparent);background:color-mix(in srgb,var(--sc) 8%,transparent)}
+.sev-badge{background:color-mix(in srgb,var(--sc) 12%,transparent);color:var(--sc);border:1px solid color-mix(in srgb,var(--sc) 25%,transparent)}
+
+/* CVE DETAIL */
+.cve-detail{display:none;border-top:1px solid var(--border);padding:22px;flex-direction:column;gap:22px}
+.cve-card.open .cve-detail{display:flex}
+.d-lbl{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;display:flex;align-items:center;gap:7px}
+.d-lbl::before{content:'';display:inline-block;width:16px;height:1px;background:var(--accent);opacity:.5}
+.d-desc{font-size:13px;line-height:1.7;color:var(--text2)}
+.aff-list{display:flex;flex-wrap:wrap;gap:7px}
+.aff-chip{font-family:var(--mono);font-size:11px;padding:4px 10px;background:var(--panel2);border:1px solid var(--border);border-radius:5px;color:var(--text2)}
+.patch-steps{display:flex;flex-direction:column;gap:6px}
+.p-step{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;transition:border-color .15s,background .15s}
+.p-step:hover{border-color:rgba(32,160,255,.2);background:rgba(32,160,255,.02)}
+.step-num{width:22px;height:22px;background:var(--adim);border:1px solid rgba(32,160,255,.25);border-radius:5px;font-family:var(--mono);font-size:11px;font-weight:700;color:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.step-content{flex:1}
+.step-text{font-size:13px;line-height:1.6;color:var(--text)}
+.step-link{display:inline-flex;align-items:center;gap:5px;margin-top:6px;font-family:var(--mono);font-size:11px;color:var(--accent);text-decoration:none;padding:4px 10px;background:var(--adim);border:1px solid rgba(32,160,255,.2);border-radius:5px;transition:all .15s}
+.step-link:hover{background:rgba(32,160,255,.18);box-shadow:0 0 10px rgba(32,160,255,.15)}
+.links-grid{display:flex;flex-direction:column;gap:6px}
+.link-row{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:7px;text-decoration:none;transition:all .15s}
+.link-row:hover{border-color:rgba(32,160,255,.3);background:rgba(32,160,255,.03)}
+.link-type{font-family:var(--mono);font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;letter-spacing:.08em;flex-shrink:0}
+.lt-v{background:var(--adim);color:var(--accent);border:1px solid rgba(32,160,255,.2)}
+.lt-p{background:var(--gdim);color:var(--green);border:1px solid rgba(0,229,160,.2)}
+.lt-n{background:rgba(100,100,100,.1);color:var(--text3);border:1px solid var(--border)}
+.link-url{font-family:var(--mono);font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.link-arr{color:var(--text3);font-size:11px;flex-shrink:0}
+.err-card{display:flex;align-items:center;gap:12px;padding:14px 18px;background:var(--rdim);border:1px solid rgba(255,69,96,.2);border-radius:8px;font-family:var(--mono);font-size:13px;color:var(--red);animation:su .3s ease forwards;opacity:0}
+.src-badge{font-family:var(--mono);font-size:9px;padding:2px 6px;background:rgba(255,140,0,.12);color:var(--orange);border:1px solid rgba(255,140,0,.25);border-radius:3px;letter-spacing:.06em}
+
+/* ── DASHBOARD ── */
+.dash{background:var(--panel);border:1px solid var(--border);border-radius:14px;margin-bottom:28px;overflow:hidden;position:relative;animation:su .4s ease forwards;opacity:0}
+.dash::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--red) 30%,var(--orange) 70%,transparent);opacity:.5}
+.dash-hdr{display:flex;align-items:center;justify-content:space-between;padding:13px 20px;border-bottom:1px solid var(--border);background:var(--panel2)}
+.dash-hdr-left{display:flex;align-items:center;gap:10px}
+.dash-pulse{width:7px;height:7px;background:var(--red);border-radius:50%;box-shadow:0 0 7px var(--red);animation:lp 1.4s ease-in-out infinite;flex-shrink:0}
+.dash-hdr-title{font-family:var(--head);font-size:14px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--text)}
+.dash-hdr-sub{font-family:var(--mono);font-size:11px;color:var(--text2);letter-spacing:.08em;margin-left:6px}
+.refresh-wrap{display:flex;align-items:center;gap:9px}
+.refresh-cd{font-family:var(--mono);font-size:12px;color:var(--text2);letter-spacing:.06em;min-width:34px;text-align:right}
+.btn-refresh{background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--text3);font-size:14px;width:26px;height:26px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;line-height:1}
+.btn-refresh:hover{color:var(--accent);border-color:var(--border2);background:var(--adim)}
+.btn-refresh.spinning svg{animation:spin .7s linear infinite;display:block}
+.dash-body{display:grid;grid-template-columns:1fr 1px 1fr}
+@media(max-width:640px){.dash-body{grid-template-columns:1fr}.feed-sep{display:none}}
+.feed-sep{background:var(--border)}
+.feed-col{padding:14px 16px}
+.feed-col-hdr{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.feed-col-title{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--text2)}
+.feed-col-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.feed-card{display:flex;flex-direction:column;gap:4px;padding:11px 13px;border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:all .18s;margin-bottom:6px;position:relative;overflow:hidden;background:var(--bg2)}
+.feed-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent);opacity:0;transition:opacity .18s}
+.feed-card:hover{border-color:var(--border2);background:rgba(32,160,255,.04);transform:translateX(2px)}
+.feed-card:hover::before{opacity:1}
+.feed-card:last-child{margin-bottom:0}
+.feed-top{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.feed-id{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--text)}
+.kev-badge{font-family:var(--mono);font-size:10px;font-weight:700;padding:2px 7px;background:rgba(255,69,96,.15);color:var(--red);border:1px solid rgba(255,69,96,.35);border-radius:3px;letter-spacing:.07em}
+.ransomware-badge{font-family:var(--mono);font-size:10px;font-weight:700;padding:2px 7px;background:rgba(255,140,0,.13);color:var(--orange);border:1px solid rgba(255,140,0,.3);border-radius:3px;letter-spacing:.07em}
+.feed-desc{font-size:12px;color:var(--text2);line-height:1.55;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-top:2px}
+.feed-bot{display:flex;align-items:center;gap:7px;margin-top:3px}
+.feed-vendor-tag{font-family:var(--mono);font-size:10px;color:var(--text2);background:var(--panel);border:1px solid var(--border);border-radius:3px;padding:2px 7px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.feed-score{font-family:var(--mono);font-size:12px;font-weight:700}
+.feed-sev{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.06em}
+.feed-date{font-family:var(--mono);font-size:10px;color:var(--text2);margin-left:auto;font-weight:500}
+.feed-arrow{font-size:12px;color:var(--text3);transition:transform .15s color .15s;flex-shrink:0}
+.feed-card:hover .feed-arrow{transform:translateX(3px);color:var(--accent)}
+.feed-skel{height:70px;background:linear-gradient(90deg,var(--panel2) 0%,rgba(32,160,255,.05) 50%,var(--panel2) 100%);background-size:200% 100%;border-radius:8px;margin-bottom:5px;animation:skel-shimmer 1.5s ease-in-out infinite}
+.feed-skel:last-child{margin-bottom:0}
+@keyframes skel-shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.feed-empty{font-family:var(--mono);font-size:11px;color:var(--text3);padding:20px;text-align:center}
+.feed-err{color:rgba(255,69,96,.7)}
+.feed-meta{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:5px}
+.feed-cat{font-family:var(--mono);font-size:9px;font-weight:600;padding:2px 7px;border-radius:3px;letter-spacing:.07em;background:rgba(100,100,120,.15);color:var(--text2);border:1px solid rgba(100,100,120,.2)}
+.feed-cat.cat-rce{background:rgba(255,69,96,.12);color:var(--red);border-color:rgba(255,69,96,.25)}
+.feed-cat.cat-priv{background:rgba(255,140,0,.12);color:var(--orange);border-color:rgba(255,140,0,.25)}
+.feed-cat.cat-auth{background:rgba(255,214,0,.12);color:var(--yellow);border-color:rgba(255,214,0,.25)}
+.feed-cat.cat-mem{background:rgba(180,100,255,.12);color:#c080ff;border-color:rgba(180,100,255,.25)}
+.feed-cat.cat-web{background:rgba(0,229,160,.1);color:var(--green);border-color:rgba(0,229,160,.2)}
+.feed-cat.cat-info{background:rgba(32,160,255,.12);color:var(--accent);border-color:rgba(32,160,255,.25)}
+.feed-vendortag{font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:3px;letter-spacing:.07em;background:var(--adim);color:var(--accent);border:1px solid rgba(32,160,255,.2)}
+
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+/* ── SETTINGS PANEL ── */
+.settings-overlay{position:fixed;inset:0;z-index:100;background:rgba(5,7,15,.85);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center}
+.settings-overlay.open{display:flex}
+.settings-box{background:var(--panel);border:1px solid var(--border2);border-radius:16px;padding:32px;width:100%;max-width:500px;position:relative;animation:fin .25s ease}
+.settings-box::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent)}
+.settings-title{font-family:var(--head);font-size:17px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text);margin-bottom:24px}
+.settings-close{position:absolute;top:16px;right:16px;background:transparent;border:none;color:var(--text3);font-size:20px;cursor:pointer;padding:4px 8px;border-radius:4px;line-height:1;transition:color .15s}
+.settings-close:hover{color:var(--text)}
+.settings-section{margin-bottom:22px}
+.settings-lbl{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--text3);margin-bottom:7px;display:flex;align-items:center;gap:6px}
+.settings-input{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:13px;padding:10px 14px;outline:none;transition:border-color .2s}
+.settings-input:focus{border-color:rgba(32,160,255,.35)}
+.settings-hint{font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:6px;line-height:1.6}
+.settings-hint a{color:var(--accent);text-decoration:none}
+.settings-hint a:hover{text-decoration:underline}
+.btn-settings-save{background:linear-gradient(135deg,#1060c0,#20a0ff);color:#fff;border:none;border-radius:7px;padding:9px 24px;font-family:var(--head);font-size:14px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:all .15s;margin-top:8px}
+.btn-settings-save:hover{box-shadow:0 0 16px rgba(32,160,255,.3)}
+.key-status{font-family:var(--mono);font-size:11px;margin-top:8px;padding:6px 10px;border-radius:5px;display:none}
+.key-status.ok{background:var(--gdim);color:var(--green);border:1px solid rgba(0,229,160,.2);display:block}
+
+/* ── RATE LIMIT TOAST ── */
+.rate-toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);z-index:200;background:var(--panel);border:1px solid rgba(255,140,0,.4);border-radius:10px;padding:12px 22px;font-family:var(--mono);font-size:12px;color:var(--orange);display:none;align-items:center;gap:10px;box-shadow:0 4px 24px rgba(0,0,0,.4);white-space:nowrap}
+.rate-toast.show{display:flex;animation:fin .2s ease forwards}
+
+/* ── FILTER BAR ── */
+.filter-bar{display:none;align-items:center;gap:7px;margin-bottom:16px;flex-wrap:wrap}
+.filter-bar.visible{display:flex}
+.filter-search{background:var(--panel);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 12px;outline:none;width:180px;transition:border-color .2s}
+.filter-search:focus{border-color:rgba(32,160,255,.35)}
+.filter-search::placeholder{color:var(--text3)}
+.filter-btn{font-family:var(--mono);font-size:10px;font-weight:700;padding:5px 11px;border-radius:5px;border:1px solid var(--border);background:var(--panel);color:var(--text3);cursor:pointer;transition:all .15s;letter-spacing:.06em}
+.filter-btn:hover{border-color:var(--border2);color:var(--text2)}
+.filter-btn.fav[data-sev="ALL"].active,.filter-btn.fav.active{background:var(--adim);border-color:var(--accent);color:var(--accent)}
+.filter-btn[data-sev="CRITICAL"].active{background:var(--rdim);border-color:var(--red);color:var(--red)}
+.filter-btn[data-sev="HIGH"].active{background:var(--odim);border-color:var(--orange);color:var(--orange)}
+.filter-btn[data-sev="MEDIUM"].active{background:var(--ydim);border-color:var(--yellow);color:var(--yellow)}
+.filter-btn[data-sev="LOW"].active{background:var(--gdim);border-color:var(--green);color:var(--green)}
+.filter-btn[data-sev="KEV"].active{background:var(--rdim);border-color:var(--red);color:var(--red)}
+.filter-count{font-family:var(--mono);font-size:11px;color:var(--text3);margin-left:auto}
+
+/* ── HISTORY PANEL ── */
+.hist-overlay{position:fixed;inset:0;z-index:99;display:none}
+.hist-overlay.open{display:block}
+.hist-panel{position:fixed;top:0;right:0;bottom:0;width:340px;background:var(--panel2);border-left:1px solid var(--border2);z-index:100;overflow-y:auto;transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column}
+.hist-panel.open{transform:translateX(0)}
+.hist-hdr{padding:20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--panel2);z-index:1}
+.hist-title{font-family:var(--head);font-size:14px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text2)}
+.hist-close{background:transparent;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:4px 8px;line-height:1;border-radius:4px;transition:color .15s}
+.hist-close:hover{color:var(--text)}
+.hist-body{padding:12px;flex:1}
+.hist-empty{font-family:var(--mono);font-size:12px;color:var(--text3);text-align:center;padding:40px 20px;line-height:1.8}
+.hist-item{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:7px;cursor:pointer;transition:all .15s;position:relative}
+.hist-item:hover{border-color:var(--border2);background:rgba(32,160,255,.03)}
+.hist-item-ids{font-family:var(--mono);font-size:12px;color:var(--text);font-weight:600;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:20px}
+.hist-item-meta{font-family:var(--mono);font-size:10px;color:var(--text3);display:flex;gap:10px}
+.hist-item-del{position:absolute;top:10px;right:10px;background:transparent;border:none;color:var(--text3);font-size:14px;cursor:pointer;padding:2px 5px;line-height:1;border-radius:3px;opacity:0;transition:all .15s}
+.hist-item:hover .hist-item-del{opacity:1}
+.hist-item-del:hover{color:var(--red)}
+.hist-clearall{font-family:var(--mono);font-size:11px;color:var(--text3);background:transparent;border:1px solid var(--border);border-radius:5px;padding:7px 14px;cursor:pointer;transition:all .15s;margin:0 12px 12px;display:block;width:calc(100% - 24px)}
+.hist-clearall:hover{color:var(--red);border-color:rgba(255,69,96,.3)}
+
+/* ── EPSS ── */
+.epss-row{display:flex;align-items:center;gap:8px;margin-top:5px}
+.epss-track{height:3px;width:64px;background:var(--border);border-radius:2px;overflow:hidden;flex-shrink:0}
+.epss-fill{height:100%;border-radius:2px;transition:width .7s cubic-bezier(.4,0,.2,1)}
+.epss-pct{font-family:var(--mono);font-size:11px;font-weight:700}
+.epss-lbl{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:.1em;text-transform:uppercase}
+
+/* ── KEV ALERT ── */
+.kev-alert{display:flex;align-items:flex-start;gap:10px;padding:11px 14px;background:rgba(255,69,96,.09);border:1px solid rgba(255,69,96,.28);border-radius:7px;margin-bottom:4px}
+.kev-alert-dot{width:8px;height:8px;background:var(--red);border-radius:50%;box-shadow:0 0 8px var(--red);flex-shrink:0;margin-top:2px;animation:lp 1.4s ease-in-out infinite}
+.kev-alert-text{font-family:var(--mono);font-size:11px;color:var(--red);line-height:1.6}
+
+/* ── NAV ICON BUTTONS ── */
+.nav-icon-btn{background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--text3);width:30px;height:30px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
+.nav-icon-btn:hover{color:var(--accent);border-color:var(--border2);background:var(--adim)}
+.nav-icon-btn.on{color:var(--accent);border-color:var(--border2);background:var(--adim)}
+
+/* ── EXPORT BUTTONS ── */
+.btn-share{display:flex;align-items:center;gap:7px;background:var(--panel);border:1px solid var(--border);color:var(--text3);border-radius:8px;padding:9px 16px;font-family:var(--head);font-size:13px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:all .2s;white-space:nowrap}
+.btn-share:hover{border-color:var(--border2);color:var(--text2)}
+.btn-share.copied{color:var(--green);border-color:rgba(0,229,160,.4)}
+.btn-csv{display:flex;align-items:center;gap:7px;background:var(--panel);border:1px solid var(--border);color:var(--text3);border-radius:8px;padding:9px 16px;font-family:var(--head);font-size:13px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:all .2s;white-space:nowrap}
+.btn-csv:hover{border-color:var(--border2);color:var(--text2)}
+
+/* ── CVE SEARCH OVERLAY ── */
+.search-overlay{position:fixed;inset:0;z-index:150;background:rgba(5,7,15,.92);backdrop-filter:blur(6px);display:none;flex-direction:column;align-items:center;padding:60px 20px 40px;overflow-y:auto}
+.search-overlay.open{display:flex}
+.search-wrap{width:100%;max-width:720px;position:relative}
+.search-input-row{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--border2);border-radius:12px;padding:14px 18px;margin-bottom:6px;transition:border-color .2s}
+.search-input-row:focus-within{border-color:var(--accent);box-shadow:0 0 24px rgba(32,160,255,.12)}
+.search-icon{color:var(--text3);flex-shrink:0}
+.search-input{flex:1;background:transparent;border:none;outline:none;font-family:var(--mono);font-size:16px;color:var(--text);caret-color:var(--accent)}
+.search-input::placeholder{color:var(--text3)}
+.search-kbd{font-family:var(--mono);font-size:10px;color:var(--text3);background:var(--panel2);border:1px solid var(--border);border-radius:4px;padding:2px 7px;white-space:nowrap;flex-shrink:0}
+.search-hint{font-family:var(--mono);font-size:11px;color:var(--text3);text-align:center;margin-bottom:28px;letter-spacing:.05em}
+.search-close{position:fixed;top:20px;right:24px;background:transparent;border:1px solid var(--border);border-radius:7px;color:var(--text3);font-size:18px;cursor:pointer;padding:4px 10px;line-height:1;transition:all .15s;z-index:10}
+.search-close:hover{color:var(--text);border-color:var(--border2)}
+
+/* result card */
+.search-result{width:100%;max-width:720px;animation:su .25s ease forwards;opacity:0}
+.sr-hero{background:var(--panel);border:1px solid var(--border2);border-radius:14px;overflow:hidden;margin-bottom:14px;position:relative}
+.sr-hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent)}
+.sr-top{display:flex;align-items:flex-start;gap:16px;padding:20px 22px 16px}
+.sr-sev-bar{width:4px;border-radius:2px;align-self:stretch;flex-shrink:0;background:var(--sc)}
+.sr-id-block{flex:1}
+.sr-id{font-family:var(--mono);font-size:20px;font-weight:700;letter-spacing:.04em;color:var(--text);margin-bottom:6px}
+.sr-badges{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.sr-desc{font-size:13px;color:var(--text2);line-height:1.7}
+.sr-scores{display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0}
+.sr-score-ring{width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:15px;font-weight:700;border:2px solid color-mix(in srgb,var(--sc) 35%,transparent);background:color-mix(in srgb,var(--sc) 8%,transparent);color:var(--sc)}
+.sr-epss-wrap{text-align:right}
+.sr-epss-val{font-family:var(--mono);font-size:13px;font-weight:700}
+.sr-epss-sub{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:.1em;text-transform:uppercase}
+
+.sr-meta-row{display:flex;gap:6px;flex-wrap:wrap;padding:0 22px 14px}
+.sr-meta-chip{font-family:var(--mono);font-size:10px;padding:3px 9px;background:var(--panel2);border:1px solid var(--border);border-radius:5px;color:var(--text2)}
+
+.sr-kev-alert{display:flex;align-items:flex-start;gap:10px;margin:0 22px 14px;padding:11px 14px;background:rgba(255,69,96,.09);border:1px solid rgba(255,69,96,.28);border-radius:7px}
+.sr-kev-dot{width:8px;height:8px;background:var(--red);border-radius:50%;box-shadow:0 0 8px var(--red);flex-shrink:0;margin-top:2px;animation:lp 1.4s ease-in-out infinite}
+.sr-kev-text{font-family:var(--mono);font-size:11px;color:var(--red);line-height:1.6}
+
+.sr-section{border-top:1px solid var(--border);padding:16px 22px}
+.sr-section-lbl{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;display:flex;align-items:center;gap:7px}
+.sr-section-lbl::before{content:'';display:inline-block;width:16px;height:1px;background:var(--accent);opacity:.5}
+.sr-aff-list{display:flex;flex-wrap:wrap;gap:6px}
+.sr-aff-chip{font-family:var(--mono);font-size:11px;padding:3px 9px;background:var(--panel2);border:1px solid var(--border);border-radius:5px;color:var(--text2)}
+.sr-links{display:flex;flex-direction:column;gap:5px}
+.sr-link{display:flex;align-items:center;gap:9px;padding:9px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:7px;text-decoration:none;transition:all .15s;font-family:var(--mono);font-size:11px;color:var(--text2)}
+.sr-link:hover{border-color:rgba(32,160,255,.3);background:rgba(32,160,255,.03)}
+.sr-link-tag{font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;flex-shrink:0}
+.sr-link-url{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sr-cvss-grid{display:flex;flex-wrap:wrap;gap:8px}
+.sr-cvss-item{background:var(--panel2);border:1px solid var(--border2);border-radius:7px;padding:10px 13px;flex:1;min-width:120px}
+.sr-cvss-key{font-family:var(--mono);font-size:10px;color:var(--text2);letter-spacing:.1em;text-transform:uppercase;margin-bottom:5px;font-weight:600}
+.sr-cvss-val{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--text);letter-spacing:.04em}
+
+.sr-actions{display:flex;gap:10px;padding:16px 22px;border-top:1px solid var(--border);flex-wrap:wrap}
+.btn-sr-add{display:flex;align-items:center;gap:8px;background:linear-gradient(135deg,#1060c0,#20a0ff);color:#fff;border:none;border-radius:8px;padding:10px 22px;font-family:var(--head);font-size:14px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:all .2s}
+.btn-sr-add:hover{box-shadow:0 0 20px rgba(32,160,255,.35);transform:translateY(-1px)}
+.btn-sr-analyze{display:flex;align-items:center;gap:8px;background:transparent;color:var(--accent);border:1px solid var(--border2);border-radius:8px;padding:10px 22px;font-family:var(--head);font-size:14px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:all .2s}
+.btn-sr-analyze:hover{background:var(--adim)}
+
+/* loading / empty state */
+.sr-loading{display:flex;flex-direction:column;align-items:center;gap:16px;padding:60px 0;color:var(--text3);font-family:var(--mono);font-size:13px}
+.sr-spinner{width:32px;height:32px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite}
+.sr-empty{text-align:center;padding:50px 0;font-family:var(--mono);font-size:13px;color:var(--text3);line-height:2}
+.sr-empty strong{color:var(--text2);display:block;font-size:15px;margin-bottom:6px}
+.sr-suggestions{display:flex;flex-direction:column;gap:6px;width:100%;max-width:720px}
+.sr-sug-item{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:10px 16px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:all .15s;font-family:var(--mono);font-size:12px;color:var(--text2)}
+.sr-sug-item:hover{border-color:var(--border2);background:var(--adim);color:var(--text)}
+.sr-sug-item span{color:var(--text3);font-size:11px}
+
+/* ── LIGHT MODE ── */
+[data-theme="light"]{
+  --bg:#f0f4fb;--bg2:#e4eaf5;--panel:#ffffff;--panel2:#f4f7fc;
+  --border:rgba(32,100,200,.13);--border2:rgba(32,100,200,.28);
+  --accent:#1a7ed8;--accent2:#008fbb;--adim:rgba(26,126,216,.09);
+  --green:#00895f;--gdim:rgba(0,137,95,.09);
+  --red:#c41f3a;--rdim:rgba(196,31,58,.09);
+  --orange:#b05000;--odim:rgba(176,80,0,.09);
+  --yellow:#8a6d00;--ydim:rgba(138,109,0,.09);
+  --text:#1a2440;--text2:#3a4a6a;--text3:#7a8aaa;
+  --mono:'IBM Plex Mono',monospace;--head:'Rajdhani',sans-serif;--body:'Inter',sans-serif;
+}
+[data-theme="light"] body{background:var(--bg)}
+[data-theme="light"] .bg-canvas{background:radial-gradient(ellipse 80% 50% at 20% 10%,rgba(26,126,216,.05) 0%,transparent 60%),radial-gradient(ellipse 60% 40% at 80% 80%,rgba(0,143,187,.04) 0%,transparent 50%)}
+[data-theme="light"] #particles{opacity:.25}
+[data-theme="light"] .grid{background-image:linear-gradient(rgba(26,126,216,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(26,126,216,.06) 1px,transparent 1px)}
+[data-theme="light"] .scan,[data-theme="light"] .scan2{opacity:.35}
+
+/* ── ANIMATIONS ── */
+@keyframes title-shimmer{0%,100%{background-position:100% 0}50%{background-position:0% 0}}
+
+/* Hex logo inner ring spin + center dot pulse */
+.nav-hex-inner{transform-origin:20px 20px;animation:hex-spin 22s linear infinite}
+.nav-hex-dot{animation:hex-dot 3.5s ease-in-out infinite}
+@keyframes hex-spin{to{transform:rotate(360deg)}}
+@keyframes hex-dot{0%,100%{opacity:.9;transform:scale(1)}50%{opacity:1;transform:scale(1.4)}}
+
+/* Second scan line, offset + thinner */
+.scan2{position:fixed;left:0;right:0;height:1px;z-index:0;pointer-events:none;
+  background:linear-gradient(90deg,transparent,rgba(0,212,255,.13),transparent);
+  animation:scan 14s linear infinite 7s;top:0;opacity:0}
+
+/* Input zone idle glow breath */
+.input-zone::after{content:'';position:absolute;inset:-1px;border-radius:15px;pointer-events:none;
+  border:1px solid transparent;animation:zone-breath 5s ease-in-out infinite}
+@keyframes zone-breath{0%,100%{border-color:transparent;box-shadow:none}50%{border-color:rgba(32,160,255,.09);box-shadow:0 0 18px rgba(32,160,255,.04) inset}}
+
+/* Score ring pop when card opens */
+.cve-card.open .score-ring{animation:ring-pop .45s cubic-bezier(.36,.07,.19,.97)}
+@keyframes ring-pop{0%{transform:scale(1)}40%{transform:scale(1.18)}70%{transform:scale(.96)}100%{transform:scale(1)}}
+
+/* Patch steps stagger in */
+.cve-card.open .p-step{opacity:0;animation:slide-in .35s ease forwards}
+.cve-card.open .p-step:nth-child(1){animation-delay:.04s}
+.cve-card.open .p-step:nth-child(2){animation-delay:.11s}
+.cve-card.open .p-step:nth-child(3){animation-delay:.18s}
+.cve-card.open .p-step:nth-child(4){animation-delay:.25s}
+.cve-card.open .p-step:nth-child(5){animation-delay:.32s}
+@keyframes slide-in{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}
+
+/* Link rows stagger in */
+.cve-card.open .link-row{opacity:0;animation:slide-in .3s ease forwards}
+.cve-card.open .link-row:nth-child(1){animation-delay:.08s}
+.cve-card.open .link-row:nth-child(2){animation-delay:.15s}
+.cve-card.open .link-row:nth-child(3){animation-delay:.22s}
+.cve-card.open .link-row:nth-child(4){animation-delay:.29s}
+.cve-card.open .link-row:nth-child(5){animation-delay:.36s}
+
+/* Affected chips pop in */
+.cve-card.open .aff-chip{opacity:0;animation:chip-pop .25s ease forwards}
+.cve-card.open .aff-chip:nth-child(1){animation-delay:.06s}
+.cve-card.open .aff-chip:nth-child(2){animation-delay:.11s}
+.cve-card.open .aff-chip:nth-child(3){animation-delay:.16s}
+.cve-card.open .aff-chip:nth-child(4){animation-delay:.21s}
+.cve-card.open .aff-chip:nth-child(5){animation-delay:.26s}
+.cve-card.open .aff-chip:nth-child(6){animation-delay:.31s}
+@keyframes chip-pop{from{opacity:0;transform:scale(.82)}to{opacity:1;transform:scale(1)}}
+
+/* Sev severity chip count-in on results render */
+.sev-chip{animation:chip-pop .4s ease both}
+
+/* Nav border subtle glow sweep */
+.nav{position:relative}
+.nav::after{content:'';position:absolute;bottom:-1px;left:0;width:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--accent),transparent);
+  animation:nav-sweep 8s ease-in-out infinite}
+@keyframes nav-sweep{0%,100%{width:0;left:50%}50%{width:60%;left:20%}}
+</style>
+</head>
+<body>
+<canvas id="particles"></canvas>
+<div class="bg-canvas"></div>
+<div class="grid"></div>
+<div class="scan"></div>
+<div class="scan2"></div>
+
+<div class="app">
+  <nav class="nav">
+    <div class="nav-brand">
+      <div class="nav-hex">
+        <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <polygon points="20,2 36,11 36,29 20,38 4,29 4,11" stroke="#20a0ff" stroke-width="1.5" fill="rgba(32,160,255,.06)"/>
+          <polygon class="nav-hex-inner" points="20,9 30,15 30,25 20,31 10,25 10,15" stroke="#00d4ff" stroke-width="1" fill="rgba(0,212,255,.05)"/>
+          <circle class="nav-hex-dot" cx="20" cy="20" r="4" fill="#20a0ff" opacity=".9"/>
+          <line x1="20" y1="2" x2="20" y2="9" stroke="#20a0ff" stroke-width="1.5" opacity=".4"/>
+          <line x1="36" y1="11" x2="30" y2="15" stroke="#20a0ff" stroke-width="1.5" opacity=".4"/>
+          <line x1="36" y1="29" x2="30" y2="25" stroke="#20a0ff" stroke-width="1.5" opacity=".4"/>
+          <line x1="20" y1="38" x2="20" y2="31" stroke="#20a0ff" stroke-width="1.5" opacity=".4"/>
+          <line x1="4" y1="29" x2="10" y2="25" stroke="#20a0ff" stroke-width="1.5" opacity=".4"/>
+          <line x1="4" y1="11" x2="10" y2="15" stroke="#20a0ff" stroke-width="1.5" opacity=".4"/>
+        </svg>
+      </div>
+      <div>
+        <div class="nav-title">CVE Patch Intelligence</div>
+        <div class="nav-sub">NVD/NIST Live Feed · Automated Remediation</div>
+      </div>
+    </div>
+    <div class="nav-right">
+      <div class="live-wrap"><div class="live-dot"></div><span>NVD LIVE</span></div>
+      <button id="searchBtn" title="Sök CVE (Ctrl+K)" onclick="openSearch()" style="display:flex;align-items:center;gap:8px;background:linear-gradient(135deg,rgba(32,100,200,.35),rgba(32,160,255,.25));border:1px solid rgba(32,160,255,.5);border-radius:8px;color:var(--accent);padding:7px 14px;font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.08em;cursor:pointer;transition:all .2s;box-shadow:0 2px 12px rgba(32,160,255,.15)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <span>Sök CVE</span>
+        <span style="font-size:10px;color:rgba(32,160,255,.6);background:rgba(32,160,255,.1);border:1px solid rgba(32,160,255,.2);border-radius:3px;padding:1px 6px">Ctrl+K</span>
+      </button>
+      <button class="nav-icon-btn" id="themeBtn" title="Toggle light/dark" onclick="toggleTheme()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+      <button class="nav-icon-btn" id="histBtn" title="Sökhistorik" onclick="openHist()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      </button>
+      <button class="nav-icon-btn" id="settingsBtn" title="Inställningar" onclick="openSettings()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+      <div class="lang-sw">
+        <button class="lang-btn on" data-lang="sv" onclick="setLang('sv')">SV</button>
+        <button class="lang-btn" data-lang="en" onclick="setLang('en')">EN</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- THREAT INTEL DASHBOARD -->
+  <div class="dash" id="dash">
+    <div class="dash-hdr">
+      <div class="dash-hdr-left">
+        <div class="dash-pulse"></div>
+        <span class="dash-hdr-title">Threat Intel Feed</span>
+        <span class="dash-hdr-sub" id="dashUpdated"></span>
+      </div>
+      <div class="refresh-wrap">
+        <span class="refresh-cd" id="refreshCd"></span>
+        <button class="btn-refresh" id="btnRefresh" title="Refresh now" onclick="dashRefresh()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="dash-body">
+      <div class="feed-col" id="feedNew">
+        <div class="feed-col-hdr"><div class="feed-col-dot" style="background:var(--accent)"></div><span class="feed-col-title" data-i18n-d="col_new">Nyligen funna sårbarheter · Senaste 24h</span></div>
+        <div id="feedNewList"></div>
+      </div>
+      <div class="feed-sep"></div>
+      <div class="feed-col" id="feedKev">
+        <div class="feed-col-hdr"><div class="feed-col-dot" style="background:var(--red)"></div><span class="feed-col-title" data-i18n-d="col_kev">Aktivt exploaterade · CISA KEV</span></div>
+        <div id="feedKevList"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="input-zone">
+    <div class="zone-hdr">
+      <div class="zone-label" data-i18n="input_label">Threat Input</div>
+      <div class="zone-tag">CVE-FORMAT</div>
+    </div>
+    <textarea id="cveInput" placeholder="CVE-2024-1234, CVE-2024-5678&#10;Klistra in CVE-IDs – kommaseparerade eller en per rad" oninput="updateCounter()"></textarea>
+    <div class="run-row">
+      <div class="cve-counter"><span id="cCount">0</span> CVE(s) <span id="cTxt">identifierade</span></div>
+      <button class="btn-analyze" id="runBtn" onclick="startAnalysis()">
+        <div class="spin-ring"></div>
+        <span class="btn-lbl" data-i18n="run_btn">⬡ ANALYSERA</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="v-dialog" id="vDialog">
+    <div class="v-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span data-i18n="dlg_title">Systemkonfiguration krävs</span>
+    </div>
+    <div class="v-body" data-i18n="dlg_body">För att ge dig exakt rätt patch-länk behöver vi veta vilka versioner som körs i din miljö.</div>
+    <div class="v-questions" id="vQs"></div>
+    <div class="v-actions">
+      <button class="btn-skip" onclick="skipV()" data-i18n="skip_btn">Hoppa över</button>
+      <button class="btn-cont" onclick="contV()" data-i18n="cont_btn">Fortsätt analys →</button>
+    </div>
+  </div>
+
+  <div class="prog-wrap" id="progWrap">
+    <div class="prog-top">
+      <div class="prog-lbl" id="progLbl">Initialiserar...</div>
+      <div class="prog-pct" id="progPct">0%</div>
+    </div>
+    <div class="prog-track"><div class="prog-fill" id="progFill"></div></div>
+  </div>
+
+  <div class="res-hdr" id="resHdr">
+    <div>
+      <div class="res-title" data-i18n="res_title">Analys komplett</div>
+      <div class="sev-counts" id="sevCounts"></div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="btn-pdf" id="pdfBtn" onclick="exportPDF()">⬇ <span data-i18n="exp_btn">Exportera PDF</span></button>
+      <button class="btn-csv" id="csvBtn" onclick="exportCSV()">⬇ CSV</button>
+      <button class="btn-share" id="shareBtn" onclick="shareLink()">⬡ Dela</button>
+    </div>
+  </div>
+
+  <div class="filter-bar" id="filterBar">
+    <input class="filter-search" id="filterSearch" type="text" placeholder="Sök CVE, vendor..." oninput="applyFilter()">
+    <button class="filter-btn active" data-sev="ALL" onclick="setSevFilter(this)">ALLA</button>
+    <button class="filter-btn" data-sev="CRITICAL" onclick="setSevFilter(this)">KRITISK</button>
+    <button class="filter-btn" data-sev="HIGH" onclick="setSevFilter(this)">HÖG</button>
+    <button class="filter-btn" data-sev="MEDIUM" onclick="setSevFilter(this)">MEDEL</button>
+    <button class="filter-btn" data-sev="LOW" onclick="setSevFilter(this)">LÅG</button>
+    <button class="filter-btn" data-sev="KEV" onclick="setSevFilter(this)">KEV</button>
+    <span class="filter-count" id="filterCount"></span>
+  </div>
+
+  <div id="results"></div>
+</div>
+
+<!-- CVE SEARCH OVERLAY -->
+<div class="search-overlay" id="searchOverlay">
+  <button class="search-close" onclick="closeSearch()">✕ ESC</button>
+  <div class="search-wrap">
+    <div class="search-input-row">
+      <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input class="search-input" id="searchInput" type="text" placeholder="CVE-2024-1234 eller sökord..." autocomplete="off" oninput="onSearchInput(this.value)" onkeydown="onSearchKey(event)">
+      <span class="search-kbd" id="searchSpinner" style="display:none">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin .6s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+      </span>
+    </div>
+    <div class="search-hint">Ange ett CVE-ID för fullständig info — tryck Escape för att stänga</div>
+  </div>
+  <div id="searchResultArea" style="width:100%;max-width:720px"></div>
+</div>
+
+<!-- SETTINGS OVERLAY -->
+<div class="settings-overlay" id="settingsOverlay" onclick="if(event.target===this)closeSettings()">
+  <div class="settings-box">
+    <button class="settings-close" onclick="closeSettings()">✕</button>
+    <div class="settings-title">⬡ Inställningar</div>
+    <div class="settings-section">
+      <div class="settings-lbl">NVD API-nyckel</div>
+      <input class="settings-input" id="nvdKeyInput" type="password" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+      <div class="settings-hint">Gratis nyckel på <a href="https://nvd.nist.gov/developers/request-an-api-key" target="_blank">nvd.nist.gov/developers</a>. Höjer rate limit från 5 → 50 req/30s. Sparas i webbläsaren.</div>
+      <div class="key-status" id="keyStatus">✓ API-nyckel sparad</div>
+    </div>
+    <button class="btn-settings-save" onclick="saveSettings()">Spara</button>
+  </div>
+</div>
+
+<!-- HISTORY PANEL -->
+<div class="hist-overlay" id="histOverlay" onclick="if(event.target===this)closeHist()"></div>
+<div class="hist-panel" id="histPanel">
+  <div class="hist-hdr">
+    <span class="hist-title">Sökhistorik</span>
+    <button class="hist-close" onclick="closeHist()">✕</button>
+  </div>
+  <div class="hist-body" id="histBody"></div>
+  <button class="hist-clearall" onclick="clearHist()">Rensa allt</button>
+</div>
+
+<!-- RATE LIMIT TOAST -->
+<div class="rate-toast" id="rateToast">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+  <span id="rateToastMsg">NVD rate limit – väntar 30s...</span>
+</div>
+
+<!-- FOOTER SIGNATURE -->
+<footer style="position:relative;z-index:1;text-align:center;padding:28px 0 40px;border-top:1px solid var(--border);margin-top:20px">
+  <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.2em;text-transform:uppercase;margin-bottom:4px">Skapad av</div>
+  <div style="font-family:var(--head);font-size:18px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">Joel Juhlin</div>
+  <div style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:4px;letter-spacing:.12em">Orange Cyberdefense · CVE Patch Intelligence</div>
+</footer>
+
+<script>
+const TXT = {
+  sv:{input_label:"Threat Input",run_btn:"⬡ ANALYSERA",cTxt:"identifierade",dlg_title:"Systemkonfiguration krävs",dlg_body:"För att ge dig exakt rätt patch-länk behöver vi veta vilka versioner som körs i din miljö.",skip_btn:"Hoppa över",cont_btn:"Fortsätt analys →",res_title:"Analys komplett",exp_btn:"Exportera PDF",no_cves:"Inga giltiga CVE-IDs hittades.",not_found:"Hittades inte i NVD",fetching:id=>`Hämtar ${id} från NVD...`,desc_lbl:"Beskrivning",aff_lbl:"Berörda system",patch_lbl:"Patch-guide",links_lbl:"Officiella patch-länkar",vtag:"VENDOR",ptag:"PATCH",ntag:"NVD",no_links:"Inga specifika patch-länkar hittades – sök manuellt hos vendorn.",pub:"Publicerad",other:"Övrigt",unk:"Okänd vendor",sev:{CRITICAL:"KRITISK",HIGH:"HÖG",MEDIUM:"MEDEL",LOW:"LÅG",NONE:"INGEN",UNKNOWN:"OKÄND"}},
+  en:{input_label:"Threat Input",run_btn:"⬡ ANALYZE",cTxt:"identified",dlg_title:"System Configuration Required",dlg_body:"To provide the exact right patch link, we need to know which versions are running in your environment.",skip_btn:"Skip",cont_btn:"Continue analysis →",res_title:"Analysis Complete",exp_btn:"Export PDF",no_cves:"No valid CVE IDs found.",not_found:"Not found in NVD",fetching:id=>`Fetching ${id} from NVD...`,desc_lbl:"Description",aff_lbl:"Affected Systems",patch_lbl:"Patch Guide",links_lbl:"Official Patch Links",vtag:"VENDOR",ptag:"PATCH",ntag:"NVD",no_links:"No specific patch links found – search manually at the vendor site.",pub:"Published",other:"Other",unk:"Unknown Vendor",sev:{CRITICAL:"CRITICAL",HIGH:"HIGH",MEDIUM:"MEDIUM",LOW:"LOW",NONE:"NONE",UNKNOWN:"UNKNOWN"}}
+};
+let lang='sv', lastResults=[], vAnswers={}, pendingCVEs=[];
+let kevSet = new Set(); // loaded from CISA KEV
+let epssCache = {}; // id → score
+let activeSevFilter = 'ALL';
+const L=k=>TXT[lang][k]||TXT.en[k]||k;
+const Lsev=s=>(TXT[lang].sev||{})[s]||s;
+
+// ── THEME ──────────────────────────────────────────────────────────
+function toggleTheme(){
+  const t = document.documentElement.getAttribute('data-theme')==='light'?'dark':'light';
+  document.documentElement.setAttribute('data-theme', t==='light'?'light':'');
+  localStorage.setItem('cve_theme', t);
+  document.getElementById('themeBtn').classList.toggle('on', t==='light');
+}
+(function(){
+  const t=localStorage.getItem('cve_theme');
+  if(t==='light'){document.documentElement.setAttribute('data-theme','light');setTimeout(()=>document.getElementById('themeBtn')?.classList.add('on'),0);}
+})();
+
+// ── SETTINGS ──────────────────────────────────────────────────────
+function openSettings(){
+  document.getElementById('nvdKeyInput').value=localStorage.getItem('nvd_api_key')||'';
+  document.getElementById('settingsOverlay').classList.add('open');
+}
+function closeSettings(){document.getElementById('settingsOverlay').classList.remove('open');}
+function saveSettings(){
+  const k=document.getElementById('nvdKeyInput').value.trim();
+  if(k) localStorage.setItem('nvd_api_key',k); else localStorage.removeItem('nvd_api_key');
+  const st=document.getElementById('keyStatus');
+  st.textContent=k?'✓ API-nyckel sparad':'✓ Inställningar sparade';
+  st.style.display='block';
+  setTimeout(()=>{st.style.display='none';closeSettings();},1400);
+}
+function getNVDKey(){return localStorage.getItem('nvd_api_key')||'';}
+
+// ── RATE LIMIT TOAST ──────────────────────────────────────────────
+function showRateToast(msg,ms=5000){
+  const t=document.getElementById('rateToast');
+  document.getElementById('rateToastMsg').textContent=msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),ms);
+}
+
+// ── HISTORY ───────────────────────────────────────────────────────
+function getHist(){try{return JSON.parse(localStorage.getItem('cve_hist')||'[]');}catch{return [];}}
+function saveHist(h){localStorage.setItem('cve_hist',JSON.stringify(h.slice(0,30)));}
+function addHist(ids){
+  if(!ids.length)return;
+  const h=getHist().filter(x=>x.ids.join()!==ids.join());
+  h.unshift({ids,date:new Date().toISOString()});
+  saveHist(h);
+}
+function openHist(){
+  document.getElementById('histOverlay').classList.add('open');
+  document.getElementById('histPanel').classList.add('open');
+  renderHist();
+}
+function closeHist(){
+  document.getElementById('histOverlay').classList.remove('open');
+  document.getElementById('histPanel').classList.remove('open');
+}
+function renderHist(){
+  const h=getHist();const el=document.getElementById('histBody');
+  if(!h.length){el.innerHTML=`<div class="hist-empty">Inga tidigare sökningar.<br>Analysera CVEs så sparas de här automatiskt.</div>`;return;}
+  el.innerHTML=h.map((x,i)=>{
+    const d=new Date(x.date);
+    const dStr=d.toLocaleDateString('sv-SE')+' '+d.toLocaleTimeString('sv-SE',{hour:'2-digit',minute:'2-digit'});
+    return `<div class="hist-item" onclick="histLoad(${i})">
+      <div class="hist-item-ids">${x.ids.join(', ')}</div>
+      <div class="hist-item-meta"><span>${x.ids.length} CVE${x.ids.length>1?'s':''}</span><span>${dStr}</span></div>
+      <button class="hist-item-del" onclick="event.stopPropagation();histDel(${i})">✕</button>
+    </div>`;
+  }).join('');
+}
+function histLoad(i){
+  const h=getHist();if(!h[i])return;
+  document.getElementById('cveInput').value=h[i].ids.join(', ');
+  updateCounter();closeHist();startAnalysis();
+}
+function histDel(i){
+  const h=getHist();h.splice(i,1);saveHist(h);renderHist();
+}
+function clearHist(){saveHist([]);renderHist();}
+
+// ── FILTER BAR ────────────────────────────────────────────────────
+function setSevFilter(btn){
+  activeSevFilter=btn.dataset.sev;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  applyFilter();
+}
+function applyFilter(){
+  const q=(document.getElementById('filterSearch').value||'').toLowerCase();
+  let shown=0,total=0;
+  document.querySelectorAll('.v-group').forEach(g=>{
+    let anyVisible=false;
+    g.querySelectorAll('.cve-card').forEach(card=>{
+      total++;
+      const id=card.querySelector('.cve-id')?.textContent||'';
+      const sev=card.className.match(/s-(\w+)/)?.[1]||'';
+      const vendor=g.querySelector('.v-name')?.textContent||'';
+      const isKev=card.dataset.kev==='1';
+      const sevMatch = activeSevFilter==='ALL'||(activeSevFilter==='KEV'?isKev:sev===activeSevFilter);
+      const txtMatch = !q||id.toLowerCase().includes(q)||vendor.toLowerCase().includes(q);
+      const visible=sevMatch&&txtMatch;
+      card.style.display=visible?'':'none';
+      if(visible){shown++;anyVisible=true;}
+    });
+    g.style.display=anyVisible?'':'none';
+  });
+  const fc=document.getElementById('filterCount');
+  if(fc)fc.textContent=`${shown} / ${total} CVE${total>1?'s':''}`;
+}
+
+// ── EPSS ──────────────────────────────────────────────────────────
+async function fetchEPSS(ids){
+  if(!ids.length)return{};
+  try{
+    const r=await fetchWithTimeout(`https://api.first.org/data/v1/epss?cve=${ids.join(',')}&limit=100`);
+    if(!r.ok)return{};
+    const d=await r.json();
+    const out={};
+    (d.data||[]).forEach(x=>{out[x.cve]=parseFloat(x.epss)*100;});
+    return out;
+  }catch{return{};}
+}
+
+// ── KEV SET (reuse from dashboard) ────────────────────────────────
+async function loadKevSet(){
+  if(kevSet.size>0)return;
+  try{
+    const r=await fetchWithTimeout('https://raw.githubusercontent.com/cisagov/kev-data/develop/known_exploited_vulnerabilities.json',10000);
+    if(!r.ok)return;
+    const d=await r.json();
+    (d.vulnerabilities||[]).forEach(v=>kevSet.add(v.cveID));
+  }catch{}
+}
+
+// ── SHARE LINK ────────────────────────────────────────────────────
+function shareLink(){
+  const ids=parseCVEs(document.getElementById('cveInput').value);
+  if(!ids.length)return;
+  const url=location.href.split('?')[0]+'?cves='+encodeURIComponent(ids.join(','));
+  navigator.clipboard.writeText(url).then(()=>{
+    const btn=document.getElementById('shareBtn');
+    btn.textContent='✓ Kopierad!';btn.classList.add('copied');
+    setTimeout(()=>{btn.textContent='⬡ Dela';btn.classList.remove('copied');},2000);
+  });
+}
+// Load CVEs from URL on start
+(function(){
+  const p=new URLSearchParams(location.search).get('cves');
+  if(p){const ta=document.getElementById('cveInput');ta.value=decodeURIComponent(p);updateCounter();setTimeout(startAnalysis,600);}
+})();
+
+// ── CSV EXPORT ────────────────────────────────────────────────────
+function exportCSV(){
+  if(!lastResults.length)return;
+  const ok=lastResults.filter(r=>!r.error);
+  const rows=[['CVE ID','Severity','CVSS Score','EPSS %','Vendor','Published','KEV','Source','Description']];
+  ok.forEach(r=>{
+    rows.push([
+      r.id, r.severity, r.score??'', epssCache[r.id]!=null?epssCache[r.id].toFixed(2)+'%':'',
+      r.vendor?.name||'', r.pub||'', kevSet.has(r.id)?'YES':'NO',
+      r._source||'NVD', (r.desc||'').replace(/"/g,"'").slice(0,200)
+    ]);
+  });
+  const csv=rows.map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);
+  a.download=`cve_rapport_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+function setLang(l){
+  lang=l;
+  document.querySelectorAll('.lang-btn').forEach(b=>b.classList.toggle('on',b.dataset.lang===l));
+  document.querySelectorAll('[data-i18n]').forEach(el=>{const v=TXT[l][el.dataset.i18n];if(v!==undefined)el.textContent=v;});
+  document.getElementById('cTxt').textContent=L('cTxt');
+  const ta=document.getElementById('cveInput');
+  ta.placeholder=l==='sv'?'CVE-2024-1234, CVE-2024-5678\nKlistra in CVE-IDs – kommaseparerade eller en per rad':'CVE-2024-1234, CVE-2024-5678\nPaste CVE IDs – comma-separated or one per line';
+}
+
+function parseCVEs(r){return[...new Set((r.toUpperCase().match(/CVE-\d{4}-\d{4,7}/g)||[]))]}
+function updateCounter(){document.getElementById('cCount').textContent=parseCVEs(document.getElementById('cveInput').value).length}
+
+async function fetchNVD(id){
+  const key=getNVDKey();
+  const headers=key?{'apiKey':key}:{};
+  const r=await fetch(`https://services.nvd.nist.gov/rest/json/cves/2.0?cveId=${id}`,{headers});
+  if(r.status===429){
+    showRateToast(lang==='sv'?'NVD rate limit nådd – väntar 35s...':'NVD rate limit reached – waiting 35s...',36000);
+    await sleep(35000);
+    return fetchNVD(id);
+  }
+  if(!r.ok)throw new Error(`HTTP ${r.status}`);
+  const d=await r.json();return d.vulnerabilities?.[0]?.cve||null;
+}
+function getScore(c){const m=c.metrics||{};for(const k of['cvssMetricV31','cvssMetricV30'])if(m[k]?.[0])return m[k][0].cvssData?.baseScore??null;if(m.cvssMetricV2?.[0])return m.cvssMetricV2[0].cvssData?.baseScore??null;return null}
+function scoreSev(s){if(s===null||s===undefined)return'UNKNOWN';if(s>=9)return'CRITICAL';if(s>=7)return'HIGH';if(s>=4)return'MEDIUM';if(s>0)return'LOW';return'NONE'}
+function getDesc(c){const d=c.descriptions||[];return d.find(x=>x.lang==='en')?.value||d[0]?.value||''}
+function getAffected(c){const o=new Set();for(const cfg of c.configurations||[])for(const n of cfg.nodes||[])for(const cp of n.cpeMatch||[]){const p=(cp.criteria||'').split(':');if(p.length>=5){const vn=p[3].replace(/_/g,' '),pr=p[4].replace(/_/g,' '),vr=p[5]!=='*'?p[5]:'';o.add([vn,pr,vr].filter(Boolean).join(' '))}}return[...o].slice(0,10)}
+function getLinks(c){const pt=new Set(['Patch','Vendor Advisory','Mitigation','Fix']);const hints=['advisory','patch','update','download','security','bulletin','hotfix','fix','support.microsoft','redhat','ubuntu.com/security','debian.org/security','fortiguard','vmware','cisco.com/security','fortinet','mozilla.org','apache.org','nginx.org','openssl.org','github.com/advisories'];return(c.references||[]).filter(r=>{const tags=r.tags||[];return tags.some(t=>pt.has(t))||hints.some(h=>r.url.toLowerCase().includes(h))}).map(r=>({url:r.url,isVendor:(r.tags||[]).includes('Vendor Advisory'),tags:r.tags||[]})).slice(0,8)}
+
+const VM_LIST=[
+  {re:/microsoft|windows|edge|office|azure|iis|\.net|exchange|sharepoint/i,name:'Microsoft',icon:'🪟'},
+  {re:/fortinet|fortigate|fortios|fortiproxy|fortiweb|fortisiem/i,name:'Fortinet',icon:'🔐'},
+  {re:/cisco|ios xe|nx-os|asa|firepower|meraki|webex/i,name:'Cisco',icon:'🌐'},
+  {re:/vmware|vcenter|vsphere|esxi|horizon/i,name:'VMware',icon:'☁️'},
+  {re:/palo alto|pan-os|globalprotect|panorama|prisma access/i,name:'Palo Alto Networks',icon:'🛡️'},
+  {re:/\bapache\b|httpd|tomcat|struts|log4j/i,name:'Apache',icon:'🪶'},
+  {re:/nginx/i,name:'NGINX',icon:'⚡'},
+  {re:/linux kernel|ubuntu|debian|redhat|centos|rhel|fedora/i,name:'Linux',icon:'🐧'},
+  {re:/openssl/i,name:'OpenSSL',icon:'🔒'},
+  {re:/google chrome|chromium/i,name:'Google',icon:'🔵'},
+  {re:/mozilla|firefox/i,name:'Mozilla',icon:'🦊'},
+  {re:/oracle|weblogic|\bjava\b|jdk|jre/i,name:'Oracle',icon:'🔴'},
+  {re:/citrix|netscaler/i,name:'Citrix',icon:'🟦'},
+  {re:/juniper|junos/i,name:'Juniper',icon:'🌿'},
+  {re:/ivanti|pulse secure|connect secure/i,name:'Ivanti',icon:'🔑'},
+  {re:/check.?point|checkpoint|gaia os/i,name:'Check Point',icon:'🛡'},
+  {re:/sonicwall|sonic os/i,name:'SonicWall',icon:'🔥'},
+  {re:/sophos|xg firewall/i,name:'Sophos',icon:'🛡'},
+  {re:/\bf5 networks\b|\bbig-ip\b|\btmos\b/i,name:'F5',icon:'⚖️'},
+  {re:/atlassian|confluence|jira|bamboo/i,name:'Atlassian',icon:'🔷'},
+  {re:/adobe|acrobat|coldfusion/i,name:'Adobe',icon:'🔴'},
+  {re:/\bsap\b|netweaver/i,name:'SAP',icon:'🔷'},
+  {re:/\bibm\b|websphere|\bdb2\b/i,name:'IBM',icon:'🔵'},
+  {re:/apple|macos|mac os x|ios \d|safari|webkit|xcode/i,name:'Apple',icon:'🍎'},
+  {re:/android|aosp/i,name:'Android',icon:'🤖'},
+  {re:/wordpress/i,name:'WordPress',icon:'📝'},
+  {re:/drupal/i,name:'Drupal',icon:'💧'},
+  {re:/kubernetes|k8s/i,name:'Kubernetes',icon:'⚙️'},
+  {re:/\bdocker\b|containerd/i,name:'Docker',icon:'🐋'},
+  {re:/gitlab/i,name:'GitLab',icon:'🦊'},
+  {re:/\bjenkins\b/i,name:'Jenkins',icon:'🤖'},
+  {re:/\bsplunk\b/i,name:'Splunk',icon:'📊'},
+  {re:/manageengine|zoho/i,name:'ManageEngine',icon:'🔧'},
+  {re:/aruba|arubaos/i,name:'Aruba',icon:'🌐'},
+  {re:/\bzyxel\b/i,name:'Zyxel',icon:'🔌'},
+  {re:/\bqnap\b/i,name:'QNAP',icon:'💾'},
+  {re:/\bveeam\b/i,name:'Veeam',icon:'☁️'},
+  {re:/moveit|progress software/i,name:'Progress',icon:'📦'},
+  {re:/solarwinds/i,name:'SolarWinds',icon:'☀️'},
+  {re:/trend micro/i,name:'Trend Micro',icon:'🛡'},
+  {re:/barracuda/i,name:'Barracuda',icon:'🐟'},
+  {re:/elasticsearch|kibana/i,name:'Elastic',icon:'📊'},
+  {re:/openssh/i,name:'OpenSSH',icon:'🔑'},
+  {re:/\bsamba\b/i,name:'Samba',icon:'🔗'},
+  {re:/spring framework|spring boot|spring security/i,name:'Spring',icon:'🌱'},
+  {re:/\bphp\b/i,name:'PHP',icon:'🐘'},
+  {re:/papercut/i,name:'PaperCut',icon:'🖨️'},
+  {re:/winrar/i,name:'WinRAR',icon:'📦'},
+  {re:/zoom/i,name:'Zoom',icon:'📹'},
+  {re:/\bredis\b/i,name:'Redis',icon:'🔴'},
+  {re:/zabbix/i,name:'Zabbix',icon:'📊'},
+  {re:/\bexim\b/i,name:'Exim',icon:'📧'},
+];
+
+function detectVendor(cve,desc){
+  const aff=getAffected(cve).join(' ').toLowerCase();
+  const combo=(desc+' '+aff).toLowerCase();
+  for(const v of VM_LIST)if(v.re.test(combo))return{name:v.name,icon:v.icon};
+  for(const c of cve.configurations||[])for(const n of c.nodes||[])for(const cp of n.cpeMatch||[]){const vn=(cp.criteria||'').split(':')[3]?.replace(/_/g,' ');if(vn&&vn.length>1)return{name:vn.charAt(0).toUpperCase()+vn.slice(1),icon:'📦'}}
+  return{name:L('unk'),icon:'📦'};
+}
+
+function detectVendorFromText(desc,affected){
+  const combo=(desc+' '+(affected||[]).join(' ')).toLowerCase();
+  for(const v of VM_LIST)if(v.re.test(combo))return{name:v.name,icon:v.icon};
+  return{name:L('unk'),icon:'📦'};
+}
+
+const VDB={
+  Microsoft:{q:s=>s?'Vilken version av Windows/Windows Server kör du?':'Which Windows/Windows Server version?',opts:['Windows 10','Windows 11','Windows Server 2019','Windows Server 2022','Windows Server 2025','Exchange Server','SharePoint','Vet ej']},
+  Fortinet:{q:s=>s?'Vilken FortiOS-version kör du?':'Which FortiOS version?',opts:['FortiOS 6.4.x','FortiOS 7.0.x','FortiOS 7.2.x','FortiOS 7.4.x','FortiProxy','FortiSIEM','Vet ej']},
+  Cisco:{q:s=>s?'Vilken Cisco-produkt och version?':'Which Cisco product/version?',opts:['IOS XE 16.x','IOS XE 17.x','ASA 9.x','Firepower FTD','NX-OS','Webex','Vet ej']},
+  VMware:{q:s=>s?'Vilken VMware-produkt?':'Which VMware product?',opts:['vCenter 7.x','vCenter 8.x','ESXi 7.x','ESXi 8.x','Horizon','Workspace ONE','Vet ej']},
+  Apache:{q:s=>s?'Vilken Apache-version?':'Which Apache version?',opts:['Apache 2.4.x','Tomcat 9.x','Tomcat 10.x','Tomcat 11.x','Log4j 2.x','Vet ej']},
+  Linux:{q:s=>s?'Vilken Linux-distribution?':'Which Linux distribution?',opts:['Ubuntu 20.04','Ubuntu 22.04','Ubuntu 24.04','RHEL/CentOS 7','RHEL/CentOS 8','RHEL 9','Debian 11','Debian 12','Vet ej']},
+  'Palo Alto Networks':{q:s=>s?'Vilken PAN-OS version?':'Which PAN-OS version?',opts:['PAN-OS 9.x','PAN-OS 10.x','PAN-OS 11.x','Prisma Access','Panorama','Vet ej']},
+  Ivanti:{q:s=>s?'Vilken Ivanti-produkt?':'Which Ivanti product?',opts:['Connect Secure','Policy Secure','Neurons for ZTA','MobileIron','Ivanti EPMM','Vet ej']},
+  'Check Point':{q:s=>s?'Vilken Check Point-version?':'Which Check Point version?',opts:['R81.20','R81.10','R81','R80.40','CloudGuard','Quantum Spark','Vet ej']},
+  F5:{q:s=>s?'Vilken BIG-IP-version?':'Which BIG-IP version?',opts:['BIG-IP 15.x','BIG-IP 16.x','BIG-IP 17.x','BIG-IQ','NGINX Plus','Vet ej']},
+  Atlassian:{q:s=>s?'Vilken Atlassian-produkt?':'Which Atlassian product?',opts:['Confluence DC 7.x','Confluence DC 8.x','Confluence Cloud','Jira DC','Jira Service Mgmt','Bitbucket','Vet ej']},
+  Apple:{q:s=>s?'Vilken Apple-plattform?':'Which Apple platform?',opts:['macOS Sequoia 15','macOS Sonoma 14','macOS Ventura 13','iOS 18','iOS 17','iPadOS 18','Vet ej']},
+  Adobe:{q:s=>s?'Vilken Adobe-produkt?':'Which Adobe product?',opts:['Acrobat DC','Acrobat Reader DC','ColdFusion 2023','ColdFusion 2021','Experience Manager','Commerce','Vet ej']},
+  Kubernetes:{q:s=>s?'Vilken Kubernetes-version?':'Which Kubernetes version?',opts:['K8s 1.29','K8s 1.30','K8s 1.31','EKS','AKS','GKE','OpenShift','Vet ej']},
+  Sophos:{q:s=>s?'Vilken Sophos-produkt?':'Which Sophos product?',opts:['XG Firewall','Sophos Firewall v19','Sophos Firewall v20','Sophos Central','Intercept X','Vet ej']},
+  SonicWall:{q:s=>s?'Vilken SonicWall-produkt?':'Which SonicWall product?',opts:['SonicOS 7.x','SonicOS 6.5.x','NSa','TZ-series','SMA 100','SMA 1000','Vet ej']},
+  ManageEngine:{q:s=>s?'Vilken ManageEngine-produkt?':'Which ManageEngine product?',opts:['ServiceDesk Plus','ADManager Plus','ADAudit Plus','Password Manager Pro','OpManager','Vet ej']},
+};
+
+function buildVersionQuestions(results){
+  const seen=new Set(),qs=[];
+  for(const r of results){if(r.error)continue;const vk=r.vendor?.name;if(vk&&VDB[vk]&&!seen.has(vk)){seen.add(vk);qs.push({vendor:vk,db:VDB[vk]})}}
+  return qs;
+}
+
+function buildPatchSteps(id,desc,affected,links,vendor,score,version){
+  const sv=lang==='sv';const vn=vendor?.name||'';const steps=[];
+  const vendorLink=links.find(l=>l.isVendor)?.url||links[0]?.url;
+  const nvdUrl=`https://nvd.nist.gov/vuln/detail/${id}`;
+
+  if(vendorLink){steps.push({text:sv?`Gå till ${vn}s officiella säkerhetsadvisory för ${id}.`:`Navigate to ${vn}'s official security advisory for ${id}.`,link:vendorLink,linkText:sv?`Öppna ${vn} Advisory ↗`:`Open ${vn} Advisory ↗`})}
+  else{steps.push({text:sv?`Sök upp ${id} på NVD.`:`Look up ${id} on NVD.`,link:nvdUrl,linkText:sv?'NVD-post ↗':'NVD Entry ↗'})}
+
+  if(version){
+    const pl=links.find(l=>l.tags.includes('Patch')||l.tags.includes('Fix'))?.url||vendorLink;
+    steps.push({text:sv?`Ladda ned rätt patch för din version: ${version}. Kontrollera att du väljer rätt arkitektur (x64/x86/ARM).`:`Download the correct patch for your version: ${version}. Verify you select the correct architecture (x64/x86/ARM).`,link:pl,linkText:sv?`Patch för ${version} ↗`:`Patch for ${version} ↗`})
+  }else{
+    const pl=links.find(l=>l.tags.includes('Patch'))?.url||vendorLink;
+    steps.push({text:sv?'Ladda ned säkerhetsuppdateringen från vendorns nedladdningssida. Välj rätt version för din installation.':'Download the security update from the vendor download page. Select the correct version for your installation.',link:pl||null,linkText:sv?'Nedladdningssida ↗':'Download Page ↗'})
+  }
+
+  const im={
+    Microsoft:sv?'Kör Windows Update eller applicera .msu/.exe-filen som administratör. Starta om systemet om det krävs.':'Run Windows Update or apply the .msu/.exe file as administrator. Restart if required.',
+    Fortinet:sv?'GUI: System → Firmware → Upload firmware-fil → Bekräfta uppgradering.\nCLI: execute restore image tftp <filename> <tftp-ip>':'GUI: System → Firmware → Upload firmware file → Confirm upgrade.\nCLI: execute restore image tftp <filename> <tftp-ip>',
+    Cisco:sv?'Upload IOS XE-imagen via SCP/TFTP till flash:\ninstall add file flash:<image> activate commit\nVerifiera: show version':'Upload IOS XE image via SCP/TFTP to flash:\ninstall add file flash:<image> activate commit\nVerify: show version',
+    VMware:sv?'Applicera via vSphere Lifecycle Manager (vLCM) eller:\nesxcli software vib update -d <patch.zip>\nStarta om ESXi-hosten.':'Apply via vSphere Lifecycle Manager (vLCM) or:\nesxcli software vib update -d <patch.zip>\nRestart the ESXi host.',
+    Apache:sv?'sudo systemctl stop apache2\nsudo apt upgrade apache2  # Debian/Ubuntu\nsudo yum update httpd       # RHEL/CentOS\nsudo systemctl start apache2':'sudo systemctl stop apache2\nsudo apt upgrade apache2  # Debian/Ubuntu\nsudo yum update httpd       # RHEL/CentOS\nsudo systemctl start apache2',
+    Linux:sv?'Ubuntu/Debian: sudo apt-get update && sudo apt-get upgrade\nRHEL/CentOS: sudo yum update / sudo dnf update\nStarta om vid kernel-uppdatering.':'Ubuntu/Debian: sudo apt-get update && sudo apt-get upgrade\nRHEL/CentOS: sudo yum update / sudo dnf update\nRestart if kernel was updated.',
+    'Palo Alto Networks':sv?'GUI: Device → Software → Download & Install rätt PAN-OS version.\nCLI: request system software install version <version>':'GUI: Device → Software → Download & Install correct PAN-OS version.\nCLI: request system software install version <version>',
+    Ivanti:sv?'Logga in på Ivanti admin-konsolen → Maintenance → Software Update → Applicera patchen.':'Log in to Ivanti admin console → Maintenance → Software Update → Apply the patch.',
+    'Check Point':sv?'SmartConsole: Menu → Install Updates → välj gateway → Install.\nCLI: cpuse install-package <package-name>':'SmartConsole: Menu → Install Updates → select gateway → Install.\nCLI: cpuse install-package <package-name>',
+    F5:sv?'tmsh: load sys software image <image> volume <volume>\nRullande uppgradering: tmsh modify sys software volume <volume> active':'tmsh: load sys software image <image> volume <volume>\nRolling upgrade: tmsh modify sys software volume <volume> active',
+    Atlassian:sv?'Stoppa Confluence: systemctl stop confluence\nTillämpa JAR/installer: java -jar atlassian-confluence-<version>.jar\nStarta: systemctl start confluence':'Stop Confluence: systemctl stop confluence\nApply installer: java -jar atlassian-confluence-<version>.jar\nStart: systemctl start confluence',
+    Apple:sv?'Systeminställningar → Allmänt → Programuppdatering → Uppgradera nu.\nMDM: Distribuera via Apple Business Manager / Jamf.':'System Settings → General → Software Update → Update Now.\nMDM: Deploy via Apple Business Manager / Jamf.',
+    Kubernetes:sv?'Uppgradera kontrollplanet: kubeadm upgrade apply v<version>\nUppgradera noder: kubeadm upgrade node && apt-get install -y kubelet=<version>':'Upgrade control plane: kubeadm upgrade apply v<version>\nUpgrade nodes: kubeadm upgrade node && apt-get install -y kubelet=<version>',
+    Docker:sv?'sudo apt-get update && sudo apt-get install docker-ce=<version>\nVerifiera: docker version':'sudo apt-get update && sudo apt-get install docker-ce=<version>\nVerify: docker version',
+    Sophos:sv?'Sophos Central: Devices → din enhet → Updates → Check Now.\nSFOS CLI: system update firmware url <url>':'Sophos Central: Devices → your device → Updates → Check Now.\nSFOS CLI: system update firmware url <url>',
+    SonicWall:sv?'GUI: System → Firmware → Upload New Firmware → Boot with new firmware.\nCLI: upload firmware tftp <ip> <filename>':'GUI: System → Firmware → Upload New Firmware → Boot with new firmware.\nCLI: upload firmware tftp <ip> <filename>',
+  };
+  steps.push({text:im[vn]||(sv?'Installera patchen med administratörsbehörighet enligt vendorns guide.':'Install the patch with administrator privileges per vendor guide.'),link:null});
+
+  const vm2={
+    Microsoft:sv?'Verifiera: Inställningar → Uppdatering → Uppdateringshistorik. Bekräfta att KB-numret visas som installerat.':'Verify: Settings → Update & Security → Update History. Confirm the KB number is shown as installed.',
+    Fortinet:sv?'CLI: get system status | grep "Version"\nGUI: Dashboard → System Information':'CLI: get system status | grep "Version"\nGUI: Dashboard → System Information',
+    Cisco:sv?'show version – bekräfta ny IOS XE-version.':'show version – confirm new IOS XE version.',
+    Linux:sv?'dpkg -l | grep <paket>  # Ubuntu\nrpm -q <paket>           # RHEL':'dpkg -l | grep <package>  # Ubuntu\nrpm -q <package>           # RHEL',
+    'Palo Alto Networks':sv?'show system info – verifiera PAN-OS version.':'show system info – verify PAN-OS version.',
+  };
+  steps.push({text:vm2[vn]||(sv?`Verifiera att ${id} inte längre flaggas i er sårbarhetsskanner. Kontrollera versionen.`:`Verify ${id} is no longer flagged by your vulnerability scanner. Check the version.`),link:null});
+  return steps;
+}
+
+function filterLinks(refs){
+  const pt=new Set(['Patch','Vendor Advisory','Mitigation','Fix']);
+  const hints=['advisory','patch','update','download','security','bulletin','hotfix','fix','support.microsoft','redhat','ubuntu.com/security','debian.org/security','fortiguard','vmware','cisco.com/security','fortinet','mozilla.org','apache.org','nginx.org','openssl.org','github.com/advisories'];
+  return refs.filter(r=>{const tags=r.tags||[];return tags.some(t=>pt.has(t))||hints.some(h=>(r.url||'').toLowerCase().includes(h))}).map(r=>({url:r.url,isVendor:(r.tags||[]).includes('Vendor Advisory'),tags:r.tags||[]})).slice(0,8);
+}
+
+async function fetchCIRCL(id){
+  const r=await fetch(`https://cve.circl.lu/api/cve/${id}`);
+  if(!r.ok)throw new Error(`HTTP ${r.status}`);
+  const d=await r.json();
+  if(!d||!d.id)return null;
+  const score=parseFloat(d.cvss3||d.cvss)||null;
+  const desc=d.summary||'';
+  const refs=(d.references||[]).map(url=>{
+    const tags=/advisory|bulletin|vendor/i.test(url)?['Vendor Advisory']:/patch|update|fix/i.test(url)?['Patch']:[];
+    return{url,isVendor:tags.includes('Vendor Advisory'),tags};
+  });
+  const affected=(d.vulnerable_configuration||[]).slice(0,10).map(c=>{
+    const cid=typeof c==='string'?c:(c.id||'');
+    const p=cid.split(':');
+    return p.length>=5?[p[3],p[4],p[5]!=='*'?p[5]:''].filter(Boolean).join(' '):'';
+  }).filter(Boolean);
+  return{score,severity:scoreSev(score),desc,affected,links:filterLinks(refs),pub:(d.Published||'').slice(0,10),_source:'CIRCL'};
+}
+
+async function fetchOSV(id){
+  const r=await fetch(`https://api.osv.dev/v1/vulns/${id}`);
+  if(!r.ok)throw new Error(`HTTP ${r.status}`);
+  const d=await r.json();
+  if(!d||!d.id)return null;
+  const desc=d.summary||d.details?.slice(0,300)||'';
+  const refs=(d.references||[]).map(ref=>{
+    const url=ref.url||'';
+    const isVendor=ref.type==='ADVISORY'||/advisory|vendor/i.test(url);
+    const isPatch=ref.type==='FIX'||/patch|fix/i.test(url);
+    return{url,isVendor,tags:isVendor?['Vendor Advisory']:isPatch?['Patch']:[]};
+  });
+  const affected=(d.affected||[]).flatMap(a=>{
+    const pkg=a.package?.name||'';const eco=a.package?.ecosystem||'';
+    return(a.versions||[]).slice(0,3).map(v=>`${eco} ${pkg} ${v}`);
+  }).slice(0,10);
+  return{score:null,severity:'UNKNOWN',desc,affected,links:filterLinks(refs),pub:(d.published||'').slice(0,10),_source:'OSV'};
+}
+
+async function fetchCVEData(id,onStatus){
+  onStatus&&onStatus(L('fetching')(id));
+  try{
+    const cve=await fetchNVD(id);
+    if(cve){
+      const score=getScore(cve);const desc=getDesc(cve);const affected=getAffected(cve);
+      const links=getLinks(cve);const pub=(cve.published||'').slice(0,10);const vendor=detectVendor(cve,desc);
+      return{score,severity:scoreSev(score),desc,affected,links,pub,vendor,_source:'NVD',_rawCve:cve};
+    }
+  }catch(e){}
+  onStatus&&onStatus(`${id} → CIRCL CVE Search...`);
+  try{
+    const d=await fetchCIRCL(id);
+    if(d){return{...d,vendor:detectVendorFromText(d.desc,d.affected)};}
+  }catch(e){}
+  onStatus&&onStatus(`${id} → OSV.dev...`);
+  try{
+    const d=await fetchOSV(id);
+    if(d){return{...d,vendor:detectVendorFromText(d.desc,d.affected)};}
+  }catch(e){}
+  throw new Error('not found');
+}
+
+async function startAnalysis(){
+  const raw=document.getElementById('cveInput').value;
+  const ids=parseCVEs(raw);
+  if(!ids.length){alert(L('no_cves'));return}
+  const btn=document.getElementById('runBtn');
+  btn.disabled=true;btn.classList.add('loading');
+  document.getElementById('results').innerHTML='';
+  document.getElementById('resHdr').style.display='none';
+  document.getElementById('vDialog').style.display='none';
+  lastResults=[];vAnswers={};
+
+  showProg(0,ids.length);
+  const tmp=[];
+  for(let i=0;i<ids.length;i++){
+    const id=ids[i];
+    try{
+      const data=await fetchCVEData(id,txt=>{document.getElementById('progLbl').textContent=txt});
+      tmp.push({id,error:false,...data});
+    }catch(e){tmp.push({id,error:true})}
+    if(i<ids.length-1)await sleep(650);
+  }
+  hideProg();btn.disabled=false;btn.classList.remove('loading');
+
+  // Save to history
+  addHist(ids);
+
+  // Fetch EPSS + ensure KEV set loaded
+  document.getElementById('progWrap').style.display='block';
+  document.getElementById('progLbl').textContent=lang==='sv'?'Hämtar EPSS & KEV-data...':'Fetching EPSS & KEV data...';
+  document.getElementById('progFill').style.width='90%';
+  const okIds=tmp.filter(r=>!r.error).map(r=>r.id);
+  const [epssData]=await Promise.all([fetchEPSS(okIds),loadKevSet()]);
+  epssCache={...epssCache,...epssData};
+  hideProg();
+
+  const vqs=buildVersionQuestions(tmp);
+  pendingCVEs=tmp;
+  if(vqs.length>0)showVDialog(vqs);
+  else finalizeResults(tmp);
+}
+
+function showVDialog(qs){
+  const qc=document.getElementById('vQs');qc.innerHTML='';
+  qs.forEach((q,qi)=>{
+    const div=document.createElement('div');div.className='v-q';
+    div.innerHTML=`<div class="v-vendor-tag">${q.vendor.toUpperCase()}</div>
+      <div class="v-q-text">${q.db.q(lang==='sv')}</div>
+      <div class="v-opts" id="vopt-${qi}">${q.db.opts.map(o=>`<div class="v-opt" onclick="selOpt(this,'${q.vendor}','${o}')">${o}</div>`).join('')}</div>
+      <input type="text" class="v-txt" placeholder="${lang==='sv'?'Eller ange manuellt...':'Or enter manually...'}" oninput="vAnswers['${q.vendor}']=this.value" id="vtxt-${qi}">`;
+    qc.appendChild(div);
+  });
+  document.getElementById('vDialog').style.display='block';
+}
+
+function selOpt(el,vendor,val){
+  el.closest('.v-opts').querySelectorAll('.v-opt').forEach(b=>b.classList.remove('sel'));
+  el.classList.add('sel');vAnswers[vendor]=val;
+  const txt=el.closest('.v-q').querySelector('.v-txt');if(txt)txt.value=val;
+}
+function contV(){document.getElementById('vDialog').style.display='none';finalizeResults(pendingCVEs)}
+function skipV(){document.getElementById('vDialog').style.display='none';finalizeResults(pendingCVEs)}
+
+function finalizeResults(tmp){
+  const results=tmp.map(r=>{
+    if(r.error)return r;
+    const version=vAnswers[r.vendor?.name]||null;
+    const steps=buildPatchSteps(r.id,r.desc,r.affected,r.links,r.vendor,r.score,version);
+    return{...r,steps,version};
+  });
+  lastResults=results;
+  renderAll(results);
+}
+
+function renderAll(results){
+  const c=document.getElementById('results');c.innerHTML='';
+  const ok=results.filter(r=>!r.error);
+  const errs=results.filter(r=>r.error);
+  const hdr=document.getElementById('resHdr');
+  if(ok.length>0){
+    hdr.style.display='flex';
+    const counts={};ok.forEach(r=>{counts[r.severity]=(counts[r.severity]||0)+1});
+    const sO=['CRITICAL','HIGH','MEDIUM','LOW','NONE','UNKNOWN'];
+    const sCl={CRITICAL:'var(--red)',HIGH:'var(--orange)',MEDIUM:'var(--yellow)',LOW:'var(--green)'};
+    const sBg={CRITICAL:'var(--rdim)',HIGH:'var(--odim)',MEDIUM:'var(--ydim)',LOW:'var(--gdim)'};
+    document.getElementById('sevCounts').innerHTML=sO.filter(s=>counts[s]).map(s=>`<div class="sev-chip" style="background:${sBg[s]||'rgba(100,100,100,.1)'};color:${sCl[s]||'var(--text3)'};border:1px solid ${sCl[s]||'var(--text3)'}33">${counts[s]} ${Lsev(s)}</div>`).join('');
+  }
+  const vGroups={};
+  ok.forEach(r=>{const vn=r.vendor?.name||L('other');if(!vGroups[vn]){vGroups[vn]={icon:r.vendor?.icon||'📦',items:[]}}vGroups[vn].items.push(r)});
+  const sRank={CRITICAL:0,HIGH:1,MEDIUM:2,LOW:3,NONE:4,UNKNOWN:5};
+  Object.entries(vGroups).sort(([,a],[,b])=>Math.min(...a.items.map(r=>sRank[r.severity]||5))-Math.min(...b.items.map(r=>sRank[r.severity]||5))).forEach(([vn,vd],vi)=>{
+    const g=document.createElement('div');g.className='v-group';g.style.animationDelay=`${vi*.06}s`;
+    g.innerHTML=`<div class="v-group-hdr"><div class="v-icon">${vd.icon}</div><div class="v-name">${vn}</div><div class="v-cnt">${vd.items.length} CVE${vd.items.length>1?'s':''}</div></div>`;
+    vd.items.forEach((r,ci)=>g.appendChild(buildCard(r,ci===0&&vi===0)));
+    c.appendChild(g);
+  });
+  errs.forEach(r=>{const e=document.createElement('div');e.className='err-card';e.innerHTML=`<span>✗</span><span>${r.id} – ${L('not_found')}</span>`;c.appendChild(e)});
+
+  // Show filter bar
+  const fb=document.getElementById('filterBar');fb.classList.add('visible');
+  activeSevFilter='ALL';
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.toggle('active',b.dataset.sev==='ALL'));
+  document.getElementById('filterSearch').value='';
+  const fc=document.getElementById('filterCount');
+  if(fc)fc.textContent=`${ok.length} CVE${ok.length!==1?'s':''}`;
+}
+
+function buildCard(r,open){
+  const isKev=kevSet.has(r.id);
+  const epss=epssCache[r.id];
+  const card=document.createElement('div');
+  card.className=`cve-card s-${r.severity}${open?' open':''}`;
+  card.dataset.kev=isKev?'1':'0';
+  const short=r.desc.length>90?r.desc.slice(0,90)+'…':r.desc;
+  const allLinks=[...r.links];
+  if(!allLinks.find(l=>l.url.includes('nvd.nist.gov')))allLinks.push({url:`https://nvd.nist.gov/vuln/detail/${r.id}`,isVendor:false,isNVD:true,tags:[]});
+  const linksHtml=allLinks.length?allLinks.map(l=>{const isN=l.isNVD||l.url.includes('nvd.nist.gov');const cls=l.isVendor?'lt-v':isN?'lt-n':'lt-p';const tag=l.isVendor?L('vtag'):isN?L('ntag'):L('ptag');return`<a class="link-row" href="${l.url}" target="_blank" rel="noopener"><span class="link-type ${cls}">${tag}</span><span class="link-url">${l.url}</span><span class="link-arr">↗</span></a>`}).join(''):`<div style="font-family:var(--mono);font-size:12px;color:var(--text3);padding:10px 14px;background:var(--bg2);border:1px dashed var(--border);border-radius:7px">${L('no_links')}</div>`;
+  const stepsHtml=(r.steps||[]).map((s,i)=>`<div class="p-step"><div class="step-num">${i+1}</div><div class="step-content"><div class="step-text">${esc(s.text)}</div>${s.link?`<a class="step-link" href="${s.link}" target="_blank" rel="noopener">${esc(s.linkText||'↗')}</a>`:''}</div></div>`).join('');
+  const affHtml=r.affected.map(a=>`<span class="aff-chip">${esc(a)}</span>`).join('');
+  card.innerHTML=`
+    <div class="cve-row" onclick="tog(this.parentElement)">
+      <div class="sev-bar"></div>
+      <div class="cve-main">
+        <div class="cve-id-row">
+          <span class="cve-id">${r.id}</span>
+          <span class="sev-badge">${Lsev(r.severity)}</span>
+          ${r.version?`<span style="font-family:var(--mono);font-size:10px;color:var(--green);background:var(--gdim);border:1px solid rgba(0,229,160,.2);padding:2px 8px;border-radius:4px">${esc(r.version)}</span>`:''}
+          ${r._source&&r._source!=='NVD'?`<span class="src-badge">${r._source}</span>`:''}
+          ${isKev?`<span style="font-family:var(--mono);font-size:9px;font-weight:700;padding:2px 7px;background:rgba(255,69,96,.15);color:var(--red);border:1px solid rgba(255,69,96,.35);border-radius:3px;letter-spacing:.07em">KEV</span>`:''}
+        </div>
+        <div class="cve-short">${esc(short)}</div>
+        ${epss!=null?`<div class="epss-row"><div class="epss-track"><div class="epss-fill" style="width:${Math.min(epss,100)}%;background:${epss>=50?'var(--red)':epss>=15?'var(--orange)':'var(--accent)'}"></div></div><span class="epss-pct" style="color:${epss>=50?'var(--red)':epss>=15?'var(--orange)':'var(--accent)'}">${epss.toFixed(1)}%</span><span class="epss-lbl">EPSS</span></div>`:''}
+      </div>
+      <div class="cve-meta">
+        <div class="score-ring">${r.score??'–'}</div>
+        <span style="font-family:var(--mono);font-size:10px;color:var(--text3)">${r.pub||''}</span>
+        <span class="chev">▼</span>
+      </div>
+    </div>
+    <div class="cve-detail">
+      ${isKev?`<div class="kev-alert"><div class="kev-alert-dot"></div><div class="kev-alert-text"><strong>CISA KEV – Aktivt exploaterad</strong><br>Denna sårbarhet finns i CISAs katalog över kända exploaterade sårbarheter. Åtgärda omedelbart.</div></div>`:''}
+      <div><div class="d-lbl">${L('desc_lbl')}</div><div class="d-desc">${esc(r.desc)}</div></div>
+      ${r.affected.length?`<div><div class="d-lbl">${L('aff_lbl')}</div><div class="aff-list">${affHtml}</div></div>`:''}
+      <div><div class="d-lbl">${L('patch_lbl')}</div><div class="patch-steps">${stepsHtml}</div></div>
+      <div><div class="d-lbl">${L('links_lbl')}</div><div class="links-grid">${linksHtml}</div></div>
+    </div>`;
+  return card;
+}
+
+function tog(c){
+  const opening=!c.classList.contains('open');
+  c.classList.toggle('open');
+  if(opening){
+    c.querySelectorAll('.p-step,.link-row,.aff-chip').forEach(el=>{
+      el.style.animation='none';
+      el.offsetHeight;
+      el.style.animation='';
+    });
+  }
+}
+
+async function exportPDF(){
+  const btn=document.getElementById('pdfBtn');
+  btn.textContent='⏳ Genererar PDF...';btn.disabled=true;
+  await sleep(80);
+  try{
+    const{jsPDF}=window.jspdf;
+    const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+    const W=210, m=16, cw=W-m*2;
+    let y=20;
+
+    // Colors
+    const C={
+      bg:[248,250,254], bg2:[240,244,252], panel:[255,255,255],
+      accent:[26,110,220], accent2:[0,140,200],
+      red:[200,30,50], orange:[200,100,0], yellow:[160,120,0], green:[0,140,80],
+      text:[20,30,60], text2:[60,80,120], text3:[120,140,170],
+      border:[210,220,235], borderDark:[180,200,225]
+    };
+    const sevCol=s=>({CRITICAL:C.red,HIGH:C.orange,MEDIUM:C.yellow,LOW:C.green}[s]||C.text3);
+
+    // helpers
+    const fill=(...rgb)=>doc.setFillColor(...rgb);
+    const stroke=(...rgb)=>doc.setDrawColor(...rgb);
+    const textC=(...rgb)=>doc.setTextColor(...rgb);
+    const font=(f,s,sz)=>{doc.setFont(f,s);doc.setFontSize(sz);};
+    const addPg=()=>{
+      addFooter();
+      doc.addPage();
+      fill(...C.bg);doc.rect(0,0,W,297,'F');
+      y=20;
+    };
+    const chkY=(n=18)=>{if(y+n>278)addPg();};
+
+    // Section label helper
+    const sectionLabel=(txt,color)=>{
+      chkY(14);
+      fill(...color);doc.rect(m,y,4,0,'F'); // left accent bar
+      doc.setLineWidth(0);
+      fill(...color.map(v=>Math.min(255,v+180)));
+      doc.roundedRect(m,y,cw,6.5,1,1,'F');
+      textC(...color);font('helvetica','bold',8);
+      doc.text(txt,m+5,y+4.5);
+      y+=10;
+    };
+
+    // Split step text on \n so multi-line instructions render as separate lines
+    const stepLines=(text,maxW)=>{
+      const lines=[];
+      text.split('\n').forEach(chunk=>{
+        doc.splitTextToSize(chunk.trim(),maxW).forEach(l=>lines.push(l));
+      });
+      return lines;
+    };
+
+    const addFooter=()=>{
+      const pg=doc.getNumberOfPages();
+      fill(...C.bg2);doc.rect(0,284,W,13,'F');
+      stroke(...C.borderDark);doc.setLineWidth(.3);doc.line(m,284.5,W-m,284.5);
+      textC(...C.text3);font('helvetica','normal',7);
+      doc.text('CVE Patch Intelligence · Joel Juhlin · Orange Cyberdefense',m,290);
+      doc.text(String(pg),W-m,290,{align:'right'});
+    };
+
+    // ── COVER PAGE ────────────────────────────────────────────────
+    fill(...C.bg);doc.rect(0,0,W,297,'F');
+    // Top accent stripe
+    fill(...C.accent);doc.rect(0,0,W,2,'F');
+    // Side accent bar
+    fill(...C.accent);doc.rect(0,0,4,297,'F');
+
+    // Title block
+    fill(...C.bg2);doc.roundedRect(m+6,22,cw-6,42,2,2,'F');
+    stroke(...C.borderDark);doc.setLineWidth(.4);doc.roundedRect(m+6,22,cw-6,42,2,2,'S');
+    textC(...C.accent);font('helvetica','bold',22);
+    doc.text('CVE PATCH INTELLIGENCE',m+14,38);
+    textC(...C.text2);font('helvetica','normal',9);
+    doc.text('AUTOMATED REMEDIATION REPORT · NVD/NIST',m+14,46);
+    textC(...C.text3);font('helvetica','normal',8);
+    const now=new Date().toLocaleString('sv-SE');
+    doc.text(`Genererad: ${now}`,m+14,56);
+
+    // Stats row
+    const ok=lastResults.filter(r=>!r.error);
+    const counts={};ok.forEach(r=>{counts[r.severity]=(counts[r.severity]||0)+1});
+    y=74;
+    const statItems=[
+      {label:'Totalt',val:String(ok.length),c:C.accent},
+      {label:'Kritisk',val:String(counts.CRITICAL||0),c:C.red},
+      {label:'Hög',val:String(counts.HIGH||0),c:C.orange},
+      {label:'Medel',val:String(counts.MEDIUM||0),c:C.yellow},
+      {label:'Låg',val:String(counts.LOW||0),c:C.green},
+      {label:'KEV',val:String(ok.filter(r=>kevSet.has(r.id)).length),c:C.red},
+    ];
+    const sw=cw/statItems.length;
+    statItems.forEach((s,i)=>{
+      const x=m+i*sw;
+      fill(255,255,255);doc.roundedRect(x+1,y,sw-3,20,1.5,1.5,'F');
+      stroke(...C.border);doc.setLineWidth(.3);doc.roundedRect(x+1,y,sw-3,20,1.5,1.5,'S');
+      textC(...s.c);font('helvetica','bold',14);
+      doc.text(s.val,x+sw/2-1,y+11,{align:'center'});
+      textC(...C.text3);font('helvetica','normal',7);
+      doc.text(s.label.toUpperCase(),x+sw/2-1,y+17,{align:'center'});
+    });
+
+    // Summary table
+    y+=30;
+    stroke(...C.borderDark);doc.setLineWidth(.3);doc.line(m,y,W-m,y);y+=6;
+    textC(...C.text2);font('helvetica','bold',8);
+    doc.text('CVE ID',m+2,y);doc.text('VENDOR',m+44,y);doc.text('SEVERITY',m+86,y);
+    doc.text('CVSS',m+118,y);doc.text('EPSS',m+134,y);doc.text('KEV',m+150,y);doc.text('PUBLICERAD',m+160,y);
+    y+=4;stroke(...C.borderDark);doc.setLineWidth(.2);doc.line(m,y,W-m,y);y+=3;
+
+    ok.forEach((r,i)=>{
+      chkY(8);
+      if(i%2===0){fill(...C.bg2);doc.rect(m,y-1,cw,7,'F');}
+      const sc=sevCol(r.severity);
+      textC(...C.text);font('courier','bold',8);doc.text(r.id,m+2,y+4);
+      textC(...C.text2);font('helvetica','normal',8);doc.text((r.vendor?.name||'–').slice(0,16),m+44,y+4);
+      // Severity pill
+      fill(...sc.map(v=>Math.min(255,v+195)));
+      doc.roundedRect(m+83,y,24,6,1,1,'F');
+      textC(...sc);font('helvetica','bold',7);doc.text(Lsev(r.severity),m+95,y+4.2,{align:'center'});
+      textC(...C.text);font('courier','normal',8);doc.text(String(r.score??'–'),m+118,y+4);
+      const epss=epssCache[r.id];
+      textC(...(epss>=50?C.red:epss>=15?C.orange:C.text2));font('courier','normal',8);
+      doc.text(epss!=null?epss.toFixed(1)+'%':'–',m+134,y+4);
+      textC(...(kevSet.has(r.id)?C.red:C.text3));font('helvetica','bold',7);
+      doc.text(kevSet.has(r.id)?'YES':'–',m+150,y+4);
+      textC(...C.text2);font('helvetica','normal',8);doc.text(r.pub||'–',m+160,y+4);
+      y+=7;
+    });
+
+    // ── DETAIL PAGES ──────────────────────────────────────────────
+    ok.forEach(r=>{
+      addPg();
+      const sc=sevCol(r.severity);
+      const isKev=kevSet.has(r.id);
+
+      // Left severity stripe
+      fill(...sc);doc.rect(0,0,4,297,'F');
+      // Top stripe
+      fill(...C.accent);doc.rect(0,0,W,2,'F');
+
+      // CVE header block
+      fill(...C.bg2);doc.roundedRect(m+6,y,cw-6,isKev?32:26,2,2,'F');
+      stroke(...sc);doc.setLineWidth(.5);doc.roundedRect(m+6,y,cw-6,isKev?32:26,2,2,'S');
+
+      textC(...C.text);font('courier','bold',18);doc.text(r.id,m+12,y+12);
+
+      // Severity badge
+      fill(...sc.map(v=>Math.min(255,v+185)));
+      doc.roundedRect(m+12,y+15,26,7,1,1,'F');
+      textC(...sc);font('helvetica','bold',8);doc.text(Lsev(r.severity),m+25,y+20,{align:'center'});
+
+      // CVSS score
+      textC(...sc);font('courier','bold',15);doc.text(`${r.score??'–'}`,m+46,y+21);
+      textC(...C.text2);font('helvetica','normal',8);doc.text('CVSS',m+46,y+26);
+
+      // EPSS
+      const epss=epssCache[r.id];
+      if(epss!=null){
+        const ec=epss>=50?C.red:epss>=15?C.orange:C.accent;
+        textC(...ec);font('courier','bold',13);doc.text(epss.toFixed(1)+'%',m+68,y+21);
+        textC(...C.text2);font('helvetica','normal',8);doc.text('EPSS',m+68,y+26);
+      }
+
+      // KEV badge
+      if(isKev){
+        fill(...C.red.map(v=>Math.min(255,v+185)));
+        doc.roundedRect(m+90,y+14,22,8,1,1,'F');
+        stroke(...C.red);doc.setLineWidth(.3);doc.roundedRect(m+90,y+14,22,8,1,1,'S');
+        textC(...C.red);font('helvetica','bold',7.5);doc.text('KEV · AKTIV',m+101,y+19.5,{align:'center'});
+      }
+
+      // Meta line (right side)
+      textC(...C.text2);font('helvetica','normal',8);
+      const metaX=isKev?m+120:m+100;
+      doc.text(`${r.vendor?.name||'–'}`,metaX,y+12);
+      doc.text(`Publicerad: ${r.pub||'–'}`,metaX,y+18);
+      if(r._source&&r._source!=='NVD'){textC(...C.accent);doc.text(`Källa: ${r._source}`,metaX,y+24);}
+
+      y+=isKev?38:32;
+
+      // KEV alert box
+      if(isKev){
+        chkY(14);
+        fill(...C.red.map(v=>Math.min(255,v+195)));
+        doc.roundedRect(m,y,cw,11,1.5,1.5,'F');
+        stroke(...C.red);doc.setLineWidth(.4);doc.roundedRect(m,y,cw,11,1.5,1.5,'S');
+        textC(...C.red);font('helvetica','bold',9);
+        doc.text('⚠  CISA KEV – Aktivt exploaterad i verkligheten. Åtgärda omedelbart.',m+5,y+7);
+        y+=15;
+      }
+
+      // Description
+      sectionLabel('BESKRIVNING',C.accent2);
+      const descLines=doc.splitTextToSize(r.desc||'',cw-4);
+      descLines.slice(0,6).forEach(l=>{chkY(5.5);textC(...C.text);font('helvetica','normal',9);doc.text(l,m+2,y);y+=5;});
+      y+=4;
+
+      // Affected systems
+      if(r.affected?.length){
+        sectionLabel('BERÖRDA SYSTEM',C.text2);
+        const chips=r.affected.slice(0,8);
+        let cx=m+2;const chipH=6;
+        chips.forEach(chip=>{
+          const tw=doc.getTextWidth(chip)+6;
+          if(cx+tw>W-m){y+=chipH+2;cx=m+2;}
+          chkY(chipH+2);
+          fill(...C.bg2);doc.roundedRect(cx,y-4.5,tw,chipH,1,1,'F');
+          stroke(...C.border);doc.setLineWidth(.2);doc.roundedRect(cx,y-4.5,tw,chipH,1,1,'S');
+          textC(...C.text2);font('helvetica','normal',7.5);doc.text(chip,cx+3,y);
+          cx+=tw+3;
+        });
+        y+=chipH+4;
+      }
+
+      // Patch guide
+      sectionLabel('PATCH-GUIDE',C.green);
+      (r.steps||[]).forEach((s,si)=>{
+        chkY(16);
+        // Step number circle
+        fill(...C.accent);doc.circle(m+5,y+1,4,'F');
+        textC(255,255,255);font('helvetica','bold',8);doc.text(String(si+1),m+5,y+3.5,{align:'center'});
+        // Step text — split on \n first, then wrap
+        const lines=stepLines(s.text||'',cw-16);
+        textC(...C.text);font('helvetica','normal',8.5);
+        const startY=y;
+        lines.forEach(l=>{chkY(5);doc.text(l,m+12,y);y+=4.8;});
+        // Link
+        if(s.link){
+          chkY(6);
+          const linkTxt=(s.linkText||s.link).replace(/↗/g,'').trim().slice(0,70);
+          fill(...C.accent.map(v=>Math.min(255,v+200)));
+          doc.roundedRect(m+12,y-1,doc.getTextWidth(linkTxt)+8,6,1,1,'F');
+          textC(...C.accent);font('helvetica','bold',8);
+          doc.textWithLink(linkTxt,m+16,y+3.5,{url:s.link});
+          y+=9;
+        }
+        // Separator line between steps
+        if(si<(r.steps.length-1)){stroke(...C.border);doc.setLineWidth(.2);doc.line(m+12,y+1,W-m,y+1);}
+        y+=5;
+      });
+
+      // Patch links
+      sectionLabel('PATCH-LÄNKAR',C.accent);
+      const aLinks=[...r.links];
+      if(!aLinks.find(l=>l.url.includes('nvd.nist.gov')))aLinks.push({url:`https://nvd.nist.gov/vuln/detail/${r.id}`,isVendor:false,tags:[]});
+      aLinks.forEach(l=>{
+        chkY(9);
+        const isV=l.isVendor,isN=l.url.includes('nvd');
+        const tagC=isV?C.accent:isN?C.text2:C.green;
+        const tag=isV?'VENDOR':isN?'NVD':'PATCH';
+        fill(...C.bg2);doc.roundedRect(m,y-3,cw,8,1,1,'F');
+        stroke(...C.border);doc.setLineWidth(.2);doc.roundedRect(m,y-3,cw,8,1,1,'S');
+        // Tag pill
+        fill(...tagC.map(v=>Math.min(255,v+185)));
+        doc.roundedRect(m+2,y-1.5,16,5,1,1,'F');
+        textC(...tagC);font('helvetica','bold',7);doc.text(tag,m+10,y+2,{align:'center'});
+        // URL
+        const urlTxt=l.url.length>80?l.url.slice(0,80)+'…':l.url;
+        textC(...C.accent);font('helvetica','normal',7.5);
+        doc.textWithLink(urlTxt,m+21,y+2,{url:l.url});
+        y+=9;
+      });
+      y+=4;
+    });
+
+    // Footers on all pages
+    const tp=doc.getNumberOfPages();
+    for(let p=1;p<=tp;p++){
+      doc.setPage(p);
+      fill(...C.bg2);doc.rect(0,284,W,13,'F');
+      stroke(...C.borderDark);doc.setLineWidth(.3);doc.line(m,284.5,W-m,284.5);
+      textC(...C.text3);font('helvetica','normal',7);
+      doc.text('CVE Patch Intelligence · Joel Juhlin · Orange Cyberdefense',m,290);
+      doc.text(`${p} / ${tp}`,W-m,290,{align:'right'});
+    }
+
+    doc.save(`cve_rapport_${new Date().toISOString().slice(0,10)}.pdf`);
+  }catch(e){console.error(e);alert('PDF-export misslyckades: '+e.message)}
+  btn.innerHTML=`⬇ <span data-i18n="exp_btn">${L('exp_btn')}</span>`;
+  btn.disabled=false;
+}
+
+function showProg(d,t){document.getElementById('progWrap').style.display='block';updProg(d,t,'')}
+function hideProg(){document.getElementById('progWrap').style.display='none'}
+function updProg(d,t,lbl){const p=t>0?Math.round(d/t*100):0;document.getElementById('progFill').style.width=p+'%';document.getElementById('progPct').textContent=p+'%';if(lbl)document.getElementById('progLbl').textContent=lbl}
+function setProg(txt,d,t){updProg(d,t,txt)}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
+document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter')startAnalysis()});
+
+// ── CVE SEARCH ────────────────────────────────────────────────────
+let searchDebounce=null, searchAbort=null;
+
+function openSearch(prefill=''){
+  document.getElementById('searchOverlay').classList.add('open');
+  const inp=document.getElementById('searchInput');
+  inp.value=prefill;
+  inp.focus();
+  document.getElementById('searchResultArea').innerHTML='';
+  if(prefill) onSearchInput(prefill);
+}
+function closeSearch(){
+  document.getElementById('searchOverlay').classList.remove('open');
+  document.getElementById('searchInput').value='';
+  document.getElementById('searchResultArea').innerHTML='';
+}
+document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();openSearch();}
+  if(e.key==='Escape'&&document.getElementById('searchOverlay').classList.contains('open'))closeSearch();
+});
+
+function onSearchKey(e){
+  if(e.key==='Enter'){
+    const v=e.target.value.trim();
+    if(v) doSearch(v);
+  }
+}
+
+function onSearchInput(val){
+  clearTimeout(searchDebounce);
+  const area=document.getElementById('searchResultArea');
+  val=val.trim();
+  if(!val){area.innerHTML='';return;}
+
+  // Check if it looks like a CVE ID
+  if(/^CVE-\d{4}-\d{4,7}$/i.test(val)){
+    searchDebounce=setTimeout(()=>doSearch(val.toUpperCase()),500);
+  } else if(val.length>=3){
+    // Show suggestions based on pattern
+    showSearchSuggestions(val, area);
+  } else {
+    area.innerHTML='';
+  }
+}
+
+function showSearchSuggestions(q, area){
+  // Generate CVE ID candidates if user types partial like "2024-1234" or "log4j"
+  const isPartialCve=/^\d{4}-\d+/.test(q)||/^CVE-\d/i.test(q);
+  if(isPartialCve){
+    const year=q.match(/\d{4}/)?.[0]||new Date().getFullYear();
+    const num=q.match(/\d{4}-(\d+)/)?.[1]||q.replace(/\D/g,'').slice(4)||'';
+    if(num.length>=3){
+      const suggestions=[
+        `CVE-${year}-${num.padStart(4,'0')}`,
+        `CVE-${year}-${num}`,
+        `CVE-${parseInt(year)+1}-${num.padStart(4,'0')}`,
+      ].filter((v,i,a)=>a.indexOf(v)===i&&/^CVE-\d{4}-\d{4,}$/.test(v)).slice(0,4);
+      area.innerHTML=`<div class="sr-suggestions">${
+        suggestions.map(s=>`<div class="sr-sug-item" onclick="document.getElementById('searchInput').value='${s}';doSearch('${s}')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <strong style="color:var(--accent)">${s}</strong>
+          <span>Sök detta CVE</span>
+        </div>`).join('')
+      }</div>`;
+    }
+  }
+}
+
+async function doSearch(id){
+  const area=document.getElementById('searchResultArea');
+  const spin=document.getElementById('searchSpinner');
+  spin.style.display='flex';
+  area.innerHTML=`<div class="sr-loading"><div class="sr-spinner"></div><span>Hämtar ${id}...</span></div>`;
+
+  try{
+    await loadKevSet();
+    const [data, epssData] = await Promise.all([
+      fetchCVEData(id, txt=>{area.querySelector('.sr-loading span')&&(area.querySelector('.sr-loading span').textContent=txt);}),
+      fetchEPSS([id])
+    ]);
+    const epss = epssData[id];
+    const isKev = kevSet.has(id);
+    renderSearchResult(id, data, epss, isKev, area);
+  } catch(e){
+    area.innerHTML=`<div class="sr-empty"><strong>Hittades inte</strong>${id} kunde inte hittas i NVD, CIRCL eller OSV.<br>Kontrollera att CVE-ID:t är korrekt.</div>`;
+  }
+  spin.style.display='none';
+}
+
+function parseCVSSVector(cve){
+  const m=cve?.metrics||{};
+  for(const k of['cvssMetricV31','cvssMetricV30']){
+    const v=m[k]?.[0]?.cvssData;
+    if(v)return{
+      vector:v.vectorString||'',
+      av:v.attackVector||'',
+      ac:v.attackComplexity||'',
+      pr:v.privilegesRequired||'',
+      ui:v.userInteraction||'',
+      scope:v.scope||'',
+      ci:v.confidentialityImpact||'',
+      ii:v.integrityImpact||'',
+      ai:v.availabilityImpact||''
+    };
+  }
+  return null;
+}
+
+function getCWE(cve){
+  const ws=cve?.weaknesses||[];
+  const out=[];
+  for(const w of ws)for(const d of w.description||[])if(d.lang==='en'&&d.value&&d.value!=='NVD-CWE-Other'&&d.value!=='NVD-CWE-noinfo')out.push(d.value);
+  return[...new Set(out)].slice(0,4);
+}
+
+function renderSearchResult(id, data, epss, isKev, area){
+  const sev=data.severity||'UNKNOWN';
+  const score=data.score;
+  const epssColor=epss>=50?'var(--red)':epss>=15?'var(--orange)':'var(--accent)';
+  const sevColor={CRITICAL:'var(--red)',HIGH:'var(--orange)',MEDIUM:'var(--yellow)',LOW:'var(--green)',NONE:'var(--text3)',UNKNOWN:'var(--text3)'}[sev]||'var(--text3)';
+  const sevTxt=Lsev(sev);
+  const cweList=data._rawCve?getCWE(data._rawCve):[];
+  const cvssVec=data._rawCve?parseCVSSVector(data._rawCve):null;
+
+  const linksHtml=(data.links||[]).length?data.links.map(l=>{
+    const isV=l.isVendor,isN=l.url.includes('nvd.nist.gov');
+    const cls=isV?'lt-v':isN?'lt-n':'lt-p';
+    const tag=isV?'VENDOR':isN?'NVD':'PATCH';
+    return`<a class="sr-link" href="${l.url}" target="_blank" rel="noopener">
+      <span class="sr-link-tag ${cls}" style="font-family:var(--mono)">${tag}</span>
+      <span class="sr-link-url">${l.url}</span>
+      <span style="color:var(--text3);flex-shrink:0">↗</span>
+    </a>`;
+  }).join(''):`<div style="font-family:var(--mono);font-size:12px;color:var(--text3);padding:10px 0">${L('no_links')}</div>`;
+
+  const affHtml=(data.affected||[]).map(a=>`<span class="sr-aff-chip">${esc(a)}</span>`).join('');
+
+  const metaChips=[
+    data.vendor?.name?`<span class="sr-meta-chip">${esc(data.vendor.name)} ${data.vendor.icon||''}</span>`:'',
+    data.pub?`<span class="sr-meta-chip">Publicerad ${data.pub}</span>`:'',
+    data._source&&data._source!=='NVD'?`<span class="src-badge">${data._source}</span>`:'',
+    ...cweList.map(c=>`<span class="sr-meta-chip" title="Common Weakness Enumeration">${esc(c)}</span>`),
+  ].filter(Boolean).join('');
+
+  const cvssSection=cvssVec?`
+    <div class="sr-section">
+      <div class="sr-section-lbl">CVSS-vektor breakdown</div>
+      <div class="sr-cvss-grid">
+        ${[
+          ['Attack Vector',cvssVec.av],
+          ['Attack Complexity',cvssVec.ac],
+          ['Privileges Required',cvssVec.pr],
+          ['User Interaction',cvssVec.ui],
+          ['Scope',cvssVec.scope],
+          ['Confidentiality',cvssVec.ci],
+          ['Integrity',cvssVec.ii],
+          ['Availability',cvssVec.ai],
+        ].filter(([,v])=>v).map(([k,v])=>{
+          const risk={NETWORK:'var(--red)',ADJACENT:'var(--orange)',LOCAL:'var(--yellow)',PHYSICAL:'var(--green)',
+            NONE:'var(--green)',LOW:'var(--yellow)',HIGH:'var(--orange)',CRITICAL:'var(--red)',
+            REQUIRED:'var(--green)',CHANGED:'var(--orange)',COMPLETE:'var(--red)',PARTIAL:'var(--orange)'}[v.toUpperCase()]||'var(--text)';
+          return`<div class="sr-cvss-item"><div class="sr-cvss-key">${k}</div><div class="sr-cvss-val" style="color:${risk}">${v}</div></div>`;
+        }).join('')}
+      </div>
+    </div>`:'';
+
+  area.innerHTML=`<div class="search-result">
+    <div class="sr-hero s-${sev}" style="--sc:${sevColor}">
+      <div class="sr-top">
+        <div class="sr-sev-bar"></div>
+        <div class="sr-id-block">
+          <div class="sr-id">${id}</div>
+          <div class="sr-badges">
+            <span class="sev-badge">${sevTxt}</span>
+            ${isKev?'<span class="kev-badge">KEV · AKTIVT EXPLOATERAD</span>':''}
+            ${epss!=null?`<span style="font-family:var(--mono);font-size:10px;color:${epssColor};background:color-mix(in srgb,${epssColor} 12%,transparent);border:1px solid color-mix(in srgb,${epssColor} 30%,transparent);padding:2px 8px;border-radius:4px">EPSS ${epss.toFixed(1)}%</span>`:''}
+          </div>
+          <div class="sr-desc">${esc(data.desc||'')}</div>
+        </div>
+        <div class="sr-scores">
+          <div class="sr-score-ring">${score??'–'}</div>
+          ${epss!=null?`<div class="sr-epss-wrap"><div class="sr-epss-val" style="color:${epssColor}">${epss.toFixed(1)}%</div><div class="sr-epss-sub">EPSS</div></div>`:''}
+        </div>
+      </div>
+      ${metaChips?`<div class="sr-meta-row">${metaChips}</div>`:''}
+      ${isKev?`<div class="sr-kev-alert"><div class="sr-kev-dot"></div><div class="sr-kev-text"><strong>CISA KEV – Kräver omedelbar åtgärd</strong><br>Sårbarhet är aktivt exploaterad i verkligheten. Federal deadline kan gälla.</div></div>`:''}
+      ${affHtml?`<div class="sr-section"><div class="sr-section-lbl">Berörda system</div><div class="sr-aff-list">${affHtml}</div></div>`:''}
+      ${cvssSection}
+      <div class="sr-section"><div class="sr-section-lbl">Patch-länkar</div><div class="sr-links">${linksHtml}</div></div>
+      <div class="sr-actions">
+        <button class="btn-sr-add" onclick="srAddToInput('${id}')">+ Lägg till i analys</button>
+        <button class="btn-sr-analyze" onclick="srRunAnalysis('${id}')">⬡ Analysera direkt</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function srAddToInput(id){
+  const ta=document.getElementById('cveInput');
+  const cur=ta.value.trim();
+  if(!parseCVEs(cur).includes(id)) ta.value=cur?cur+', '+id:id;
+  updateCounter();
+  closeSearch();
+  ta.scrollIntoView({behavior:'smooth',block:'center'});
+  ta.focus();
+}
+function srRunAnalysis(id){
+  srAddToInput(id);
+  setTimeout(startAnalysis,150);
+}
+
+// ── THREAT INTEL DASHBOARD ──────────────────────────────────────
+const DASH_INTERVAL = 10 * 60 * 1000; // 10 min
+const DASH_I18N = {
+  sv: { col_new:'Nyligen funna sårbarheter · Senaste 24h', col_kev:'Aktivt exploaterade · CISA KEV', loading:'Hämtar...', empty:'Inga data', err:'Kunde inte hämta feed', min:'min', updated:'Uppdaterad' },
+  en: { col_new:'Newly Discovered Vulnerabilities · Last 24h', col_kev:'Actively Exploited · CISA KEV',  loading:'Loading…',  empty:'No data',   err:'Could not fetch feed', min:'min', updated:'Updated' }
+};
+const DL = k => (DASH_I18N[lang]||DASH_I18N.en)[k] || k;
+
+let dashTimer = null, dashCountdown = null, dashCountdownVal = 0;
+
+const CVE_TYPES=[
+  {re:/remote code exec|rce|arbitrary code|execute arbitrary|command injection|code execution/i, label:'RCE', cls:'cat-rce'},
+  {re:/privilege escal|elevation of privilege|local privilege|gain.*privilege|escalat/i, label:'Privilege Escalation', cls:'cat-priv'},
+  {re:/sql injection|sqli/i, label:'SQLi', cls:'cat-web'},
+  {re:/cross.site script|xss|html injection/i, label:'XSS', cls:'cat-web'},
+  {re:/server.side request|ssrf/i, label:'SSRF', cls:'cat-web'},
+  {re:/path traversal|directory traversal|\.\.\/|local file inclus/i, label:'Path Traversal', cls:'cat-web'},
+  {re:/xml external|xxe/i, label:'XXE', cls:'cat-web'},
+  {re:/auth.?bypass|bypass.*auth|improper auth|missing auth|authentication.*bypass/i, label:'Auth Bypass', cls:'cat-auth'},
+  {re:/use.after.free|buffer overflow|heap overflow|stack overflow|memory corruption|out.of.bounds write|integer overflow/i, label:'Memory Corruption', cls:'cat-mem'},
+  {re:/out.of.bounds read|information disclosure|information leak|sensitive.*expos|expos.*sensitive/i, label:'Info Disclosure', cls:'cat-info'},
+  {re:/denial.of.service|\bdos\b|crash|infinite loop|resource exhaustion/i, label:'DoS', cls:'cat-priv'},
+  {re:/deserialization|insecure deseri/i, label:'Deserialization', cls:'cat-rce'},
+  {re:/open redirect/i, label:'Open Redirect', cls:'cat-web'},
+  {re:/csrf|cross.site request forgery/i, label:'CSRF', cls:'cat-web'},
+  {re:/insecure direct|idor/i, label:'IDOR', cls:'cat-auth'},
+  {re:/hardcoded|hard.coded.*cred|default.*password/i, label:'Hardcoded Creds', cls:'cat-auth'},
+  {re:/race condition/i, label:'Race Condition', cls:'cat-mem'},
+  {re:/null.pointer|null dereference/i, label:'Null Deref', cls:'cat-mem'},
+];
+
+function detectCveType(desc){
+  for(const t of CVE_TYPES) if(t.re.test(desc)) return t;
+  return {label:'Unknown', cls:''};
+}
+
+function dashSevColor(sev){
+  return {CRITICAL:'var(--red)',HIGH:'var(--orange)',MEDIUM:'var(--yellow)',LOW:'var(--green)'}[sev]||'var(--text3)';
+}
+
+function dashSkelList(n=5){
+  return Array.from({length:n},()=>'<div class="feed-skel"></div>').join('');
+}
+
+function dashCard(id, score, sev, desc, vendor, pub, isKev, isRansomware){
+  const col = dashSevColor(sev);
+  const sevTxt = (TXT[lang]?.sev||TXT.en.sev)[sev]||sev;
+  const short = desc.length > 100 ? desc.slice(0,100)+'…' : desc;
+  const pubFmt = pub ? pub.slice(0,10) : '';
+  const cveType = detectCveType(desc);
+  return `<div class="feed-card" onclick="dashInject('${id}')">
+    <div class="feed-top">
+      <span class="feed-id">${id}</span>
+      ${score!==null?`<span class="feed-score" style="color:${col}">${score}</span>`:''}
+      <span class="feed-sev" style="color:${col}">${sevTxt}</span>
+      ${isKev?'<span class="kev-badge">KEV</span>':''}
+      ${isRansomware?'<span class="ransomware-badge">RANSOMWARE</span>':''}
+    </div>
+    <div class="feed-desc">${esc(short)}</div>
+    <div class="feed-meta">
+      ${vendor?`<span class="feed-vendortag">${esc(vendor)}</span>`:''}
+      <span class="feed-cat ${cveType.cls}">${cveType.label}</span>
+      <span class="feed-date">${pubFmt}</span>
+      <span class="feed-arrow" style="margin-left:auto">→</span>
+    </div>
+  </div>`;
+}
+
+function dashInject(id){
+  const ta = document.getElementById('cveInput');
+  const cur = ta.value.trim();
+  const existing = parseCVEs(cur);
+  if(!existing.includes(id)){
+    ta.value = cur ? cur + ', ' + id : id;
+  }
+  updateCounter();
+  ta.scrollIntoView({behavior:'smooth', block:'center'});
+  ta.focus();
+  startAnalysis();
+}
+
+async function fetchDashNVD(){
+  const now = new Date();
+  const from = new Date(now - 24*60*60*1000);
+  const fmt = d => d.toISOString().replace(/\.\d+Z$/, '000Z').replace('.','%2E');
+  const url = `https://services.nvd.nist.gov/rest/json/cves/2.0?pubStartDate=${from.toISOString().slice(0,19)}.000&pubEndDate=${now.toISOString().slice(0,19)}.000&resultsPerPage=20&noRejected`;
+  const r = await fetch(url);
+  if(!r.ok) throw new Error(`NVD ${r.status}`);
+  const d = await r.json();
+  const vulns = (d.vulnerabilities||[]).map(v=>{
+    const cve = v.cve;
+    const score = getScore(cve);
+    const sev = scoreSev(score);
+    const desc = getDesc(cve);
+    const vendor = detectVendor(cve, desc);
+    const pub = (cve.published||'').slice(0,10);
+    return {id:cve.id, score, sev, desc, vendor:vendor.name, pub};
+  });
+  // Sort by score desc, take top 5
+  return vulns.sort((a,b)=>(b.score||0)-(a.score||0)).slice(0,3);
+}
+
+function fetchWithTimeout(url, ms=10000){
+  return Promise.race([
+    fetch(url),
+    new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')), ms))
+  ]);
+}
+
+async function fetchDashKEV(){
+  const KEV_CISA = 'https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json';
+  const KEV_GITHUB = 'https://raw.githubusercontent.com/cisagov/kev-data/develop/known_exploited_vulnerabilities.json';
+  const attempts = [
+    ()=> fetchWithTimeout(KEV_GITHUB),
+    ()=> fetchWithTimeout(`https://corsproxy.io/?${encodeURIComponent(KEV_CISA)}`),
+    ()=> fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent(KEV_CISA)}`),
+    ()=> fetchWithTimeout(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(KEV_CISA)}`),
+    ()=> fetchWithTimeout(KEV_CISA),
+  ];
+  let d = null;
+  for(const attempt of attempts){
+    try{
+      const r = await attempt();
+      if(!r.ok) continue;
+      const text = await r.text();
+      const json = JSON.parse(text);
+      // Both CISA and GitHub use same schema
+      if(json.vulnerabilities && json.vulnerabilities.length){ d = json; break; }
+    }catch(e){ continue; }
+  }
+  if(!d) throw new Error('KEV unavailable');
+  const vulns = d.vulnerabilities;
+  const top3 = vulns.sort((a,b)=>new Date(b.dateAdded)-new Date(a.dateAdded)).slice(0,3);
+  return top3.map(v=>({
+    id: v.cveID,
+    desc: v.shortDescription||v.vulnerabilityName||'',
+    vendor: v.vendorProject||'',
+    pub: v.dateAdded||'',
+    isRansomware: v.knownRansomwareCampaignUse==='Known'
+  }));
+}
+
+function renderFeedNew(items){
+  const el = document.getElementById('feedNewList');
+  if(!items.length){ el.innerHTML=`<div class="feed-empty">${DL('empty')}</div>`; return; }
+  el.innerHTML = items.map((v,i)=>{
+    const html = dashCard(v.id, v.score, v.sev, v.desc, v.vendor, v.pub, false, false);
+    return `<div style="opacity:0;animation:su .35s ease ${i*.07}s forwards">${html}</div>`;
+  }).join('');
+}
+
+function renderFeedKev(items){
+  const el = document.getElementById('feedKevList');
+  if(!items.length){ el.innerHTML=`<div class="feed-empty">${DL('empty')}</div>`; return; }
+  el.innerHTML = items.map((v,i)=>{
+    const html = dashCard(v.id, null, 'CRITICAL', v.desc, v.vendor, v.pub, true, v.isRansomware);
+    return `<div style="opacity:0;animation:su .35s ease ${i*.07}s forwards">${html}</div>`;
+  }).join('');
+}
+
+async function loadDash(){
+  const btn = document.getElementById('btnRefresh');
+  btn.classList.add('spinning');
+  document.getElementById('feedNewList').innerHTML = dashSkelList(3);
+  document.getElementById('feedKevList').innerHTML = dashSkelList(3);
+
+  const results = await Promise.allSettled([fetchDashNVD(), fetchDashKEV()]);
+
+  if(results[0].status==='fulfilled') renderFeedNew(results[0].value);
+  else document.getElementById('feedNewList').innerHTML=`<div class="feed-empty feed-err">${DL('err')}</div>`;
+
+  if(results[1].status==='fulfilled') renderFeedKev(results[1].value);
+  else document.getElementById('feedKevList').innerHTML=`<div class="feed-empty feed-err">${DL('err')}</div>`;
+
+  const now = new Date();
+  document.getElementById('dashUpdated').textContent = `· ${DL('updated')} ${now.toLocaleTimeString(lang==='sv'?'sv-SE':'en-GB',{hour:'2-digit',minute:'2-digit'})}`;
+  btn.classList.remove('spinning');
+
+  // Update column titles for current lang
+  document.querySelectorAll('[data-i18n-d]').forEach(el=>{const k=el.dataset.i18nD;el.textContent=DL(k);});
+
+  startDashCountdown();
+}
+
+function startDashCountdown(){
+  clearInterval(dashCountdown);
+  dashCountdownVal = DASH_INTERVAL / 1000;
+  dashCountdown = setInterval(()=>{
+    dashCountdownVal--;
+    const m = Math.floor(dashCountdownVal/60);
+    const s = dashCountdownVal%60;
+    document.getElementById('refreshCd').textContent = m>0 ? `${m}${DL('min')}` : `${s}s`;
+    if(dashCountdownVal<=0){ clearInterval(dashCountdown); loadDash(); }
+  }, 1000);
+}
+
+function dashRefresh(){
+  clearInterval(dashCountdown);
+  loadDash();
+}
+
+// Kick off on load
+window.addEventListener('DOMContentLoaded', ()=>{ setTimeout(loadDash, 400); });
+
+// Particle network background
+(function(){
+  const cv=document.getElementById('particles');
+  cv.style.cssText='position:fixed;inset:0;z-index:0;pointer-events:none';
+  const ctx=cv.getContext('2d');
+  const N=55,CON=140;
+  let W,H,pts=[];
+  function resize(){
+    W=cv.width=innerWidth;H=cv.height=innerHeight;
+    if(!pts.length)pts=Array.from({length:N},()=>({
+      x:Math.random()*W,y:Math.random()*H,
+      vx:(Math.random()-.5)*.15,vy:(Math.random()-.5)*.15
+    }));
+  }
+  function frame(){
+    ctx.clearRect(0,0,W,H);
+    for(let i=0;i<N;i++){
+      const a=pts[i];
+      for(let j=i+1;j<N;j++){
+        const b=pts[j],dx=a.x-b.x,dy=a.y-b.y,d=Math.hypot(dx,dy);
+        if(d<CON){
+          ctx.strokeStyle=`rgba(32,160,255,${.11*(1-d/CON)})`;
+          ctx.lineWidth=.6;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+        }
+      }
+      ctx.fillStyle='rgba(32,160,255,.38)';
+      ctx.beginPath();ctx.arc(a.x,a.y,1.3,0,Math.PI*2);ctx.fill();
+      a.x+=a.vx;a.y+=a.vy;
+      if(a.x<0||a.x>W)a.vx*=-1;
+      if(a.y<0||a.y>H)a.vy*=-1;
+    }
+    requestAnimationFrame(frame);
+  }
+  addEventListener('resize',resize);
+  resize();frame();
+})();
+</script>
+</body>
+</html>
